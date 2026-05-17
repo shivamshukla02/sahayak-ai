@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sahayak AI - Cinematic Video Storyboard & Interactive App Demo</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,700;1,300&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-card: #0f131a;
+      --bg-card-hover: #161c26;
+      --primary: #ef4444; /* Emergency Red */
+      --primary-glow: rgba(239, 68, 68, 0.15);
+      --secondary: #06b6d4; /* Offline Tech Cyan */
+      --secondary-glow: rgba(6, 182, 212, 0.15);
+      --accent: #10b981; /* Success Green */
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: #1f2937;
+      --font-sans: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Cinematic Overlay / Rain effect */
+    .rain-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+
+    .rain-overlay.active {
+      opacity: 1;
+      background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.8) 100%);
+    }
+
+    .rain-drop {
+      position: absolute;
+      background: linear-gradient(transparent, rgba(255, 255, 255, 0.2));
+      width: 1px;
+      height: 60px;
+      animation: fall linear infinite;
+    }
+
+    @keyframes fall {
+      0% {
+        transform: translateY(-100px) rotate(15deg);
+      }
+      100% {
+        transform: translateY(100vh) rotate(15deg);
+      }
+    }
+
+    /* Static overlay */
+    .static-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background-image: radial-gradient(circle, rgba(0,0,0,0) 0%, rgba(0,0,0,0.7) 100%);
+      z-index: 99;
+    }
+
+    .static-noise {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 98;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    }
+
+    /* Main Grid Layout */
+    .container {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+    }
+
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr 1fr;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+      }
+    }
+
+    /* Left panel: Cinematic Storyboard Video Simulator */
+    .storyboard-panel {
+      padding: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-right: 1px solid var(--border);
+      position: relative;
+      overflow-y: auto;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, var(--primary) 0%, #b91c1c 100%);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      box-shadow: 0 4px 15px var(--primary-glow);
+    }
+
+    .logo-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(to right, #ffffff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .github-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .github-link:hover {
+      color: var(--text-main);
+      border-color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Video Player Screen Simulator */
+    .video-monitor {
+      background: #000;
+      border-radius: 16px;
+      aspect-ratio: 16/9;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Cinematic Scene Visualizers */
+    .scene-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(0.95);
+      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .scene-content.active {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Opening Scene Visuals */
+    .scene-opening {
+      background: radial-gradient(circle, rgba(17, 24, 39, 0.2) 0%, rgba(0,0,0,1) 100%);
+    }
+
+    .scene-opening .flash-visual {
+      font-size: 1.25rem;
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      opacity: 0.8;
+      animation: pulse-slow 3s infinite ease-in-out;
+    }
+
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.8; }
+    }
+
+    /* Problem Scene Visuals */
+    .scene-problem {
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.05) 0%, rgba(0,0,0,1) 100%);
+    }
+
+    .signal-icon-container {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    .no-service-badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: bold;
+      animation: blink 1s infinite alternate;
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.2; }
+      100% { opacity: 1; }
+    }
+
+    /* Indian Mother Moment */
+    .scene-moment {
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.05) 0%, rgba(0,0,0,1) 100%);
+    }
+
+    .hindi-text {
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: #ffedd5;
+      margin-bottom: 1rem;
+      font-style: italic;
+    }
+
+    .english-translation {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+    }
+
+    /* Demo scene elements */
+    .scene-demo {
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, rgba(0,0,0,1) 100%);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    /* Tech Beat Scene */
+    .scene-tech {
+      background: radial-gradient(circle, rgba(14, 116, 144, 0.1) 0%, rgba(0,0,0,1) 100%);
+    }
+
+    /* Controls Overlay */
+    .player-controls {
+      position: absolute;
+      bottom: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(15, 19, 26, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 0.75rem 1.25rem;
+      z-index: 10;
+    }
+
+    .btn-action {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+      font-family: var(--font-sans);
+    }
+
+    .btn-action:hover {
+      background: #dc2626;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .btn-action.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    .btn-action.secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .timeline-bar {
+      flex-grow: 1;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      margin: 0 1.5rem;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .timeline-progress {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      border-radius: 2px;
+      transition: width 0.1s linear;
+    }
+
+    .time-counter {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      min-width: 80px;
+      text-align: right;
+    }
+
+    /* Subtitles Container */
+    .subtitle-display {
+      background: rgba(15, 19, 26, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      min-height: 110px;
+      margin-bottom: 2rem;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .vo-label {
+      position: absolute;
+      top: -10px;
+      left: 20px;
+      background: var(--primary);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .subtitle-text {
+      font-size: 1.15rem;
+      line-height: 1.6;
+      color: var(--text-main);
+    }
+
+    /* Right panel: Live Interactive Phone & Dev Specs Mockup */
+    .interactive-panel {
+      background: #0b0f16;
+      padding: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      overflow-y: auto;
+      height: 100vh;
+      max-height: 100vh;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Phone Bezel Simulator */
+    .phone-mockup {
+      width: 320px;
+      height: 640px;
+      background: #000;
+      border: 12px solid #27272a;
+      border-radius: 40px;
+      margin: 0 auto;
+      position: relative;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8), 0 0 40px rgba(6, 182, 212, 0.1);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .phone-camera {
+      width: 120px;
+      height: 25px;
+      background: #27272a;
+      border-radius: 0 0 15px 15px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .camera-lens {
+      width: 8px;
+      height: 8px;
+      background: #09090b;
+      border-radius: 50%;
+    }
+
+    /* Phone Screen Contents */
+    .phone-screen {
+      flex-grow: 1;
+      background: var(--bg-dark);
+      padding: 1.25rem;
+      padding-top: 2.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      font-size: 0.9rem;
+    }
+
+    /* Network Failure Mockup State */
+    .phone-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      margin-bottom: 1rem;
+    }
+
+    .offline-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .airplane-mode-active {
+      color: var(--secondary);
+    }
+
+    /* App UI Header */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .app-title {
+      font-weight: 800;
+      color: white;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .app-title svg {
+      color: var(--secondary);
+    }
+
+    .network-badge {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .network-badge.offline-mode {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: var(--secondary);
+    }
+
+    /* Dynamic Content Container inside App */
+    .app-body {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow-y: auto;
+      margin-bottom: 0.75rem;
+      padding-right: 2px;
+    }
+
+    /* Chat bubble visualizer */
+    .chat-bubble {
+      max-width: 85%;
+      padding: 0.75rem;
+      border-radius: 12px;
+      line-height: 1.4;
+      animation: slide-up 0.3s ease;
+    }
+
+    .chat-bubble.user {
+      align-self: flex-end;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom-right-radius: 2px;
+      border: 1px solid var(--border);
+    }
+
+    .chat-bubble.ai {
+      align-self: flex-start;
+      background: var(--bg-card);
+      border-bottom-left-radius: 2px;
+      border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+
+    @keyframes slide-up {
+      from { transform: translateY(10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Interactive app features container */
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem;
+      transition: all 0.3s ease;
+    }
+
+    .feature-card:hover {
+      border-color: var(--secondary);
+      background: var(--bg-card-hover);
+    }
+
+    /* Offline map container mockup */
+    .offline-map {
+      height: 120px;
+      background: #1e293b;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .map-grid {
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      top: -50%;
+      left: -50%;
+      background-image: 
+        radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 20px 20px, 40px 40px, 40px 40px;
+    }
+
+    .shelter-marker {
+      position: absolute;
+      top: 50%;
+      left: 60%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .marker-dot {
+      width: 12px;
+      height: 12px;
+      background: var(--secondary);
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--secondary);
+      animation: pulse-ring 1.5s infinite ease-in-out;
+    }
+
+    .user-marker {
+      position: absolute;
+      top: 30%;
+      left: 25%;
+      width: 10px;
+      height: 10px;
+      background: var(--primary);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--primary);
+    }
+
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(6, 182, 212, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+    }
+
+    /* Dynamic Scheme Cards */
+    .scheme-card {
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      border-radius: 8px;
+      padding: 0.6rem;
+      margin-top: 0.5rem;
+    }
+
+    /* App Input Controls */
+    .app-input-bar {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      border-top: 1px solid var(--border);
+      padding-top: 0.75rem;
+    }
+
+    .app-btn-round {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-main);
+      transition: all 0.3s ease;
+    }
+
+    .app-btn-round:hover {
+      background: var(--secondary);
+      border-color: var(--secondary);
+      color: black;
+    }
+
+    .app-input {
+      flex-grow: 1;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 0.5rem 1rem;
+      color: white;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    /* Technical Arch and Developer Shell View */
+    .dev-sandbox {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .terminal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot.red { background: #ef4444; }
+    .dot.yellow { background: #f59e0b; }
+    .dot.green { background: #10b981; }
+
+    .terminal-view {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #34d399; /* Terminal green */
+      background: #05070a;
+      border-radius: 8px;
+      padding: 1rem;
+      height: 180px;
+      overflow-y: auto;
+      border: 1px solid rgba(16, 185, 129, 0.1);
+    }
+
+    .arch-diagram {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .arch-node {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .arch-node.active {
+      border-color: var(--secondary);
+      background: var(--secondary-glow);
+    }
+
+    .arch-connector {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .stat-badge {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+    }
+
+    .stat-badge.highlight {
+      color: var(--secondary);
+      border-color: rgba(6, 182, 212, 0.3);
+    }
+
+    /* Scene specific highlights on interactive page */
+    .scene-navigator {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    .nav-dot {
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .nav-dot.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .action-instruction-alert {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: var(--primary);
+      border-radius: 8px;
+      padding: 0.75rem;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Background overlays -->
+  <div class="rain-overlay" id="rainOverlay"></div>
+  <div class="static-overlay"></div>
+  <div class="static-noise"></div>
+
+  <!-- Master Layout -->
+  <div class="container">
+    
+    <!-- Left column: Storyboard/Video Controller -->
+    <div class="storyboard-panel">
+      
+      <!-- Top header bar -->
+      <div class="header-bar">
+        <div class="logo-container">
+          <div class="logo-badge">SAHAYAK</div>
+          <div class="logo-title">Offline AI Co-Pilot</div>
+        </div>
+        <a href="https://github.com/sahayak-ai" class="github-link" target="_blank">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          github.com/sahayak-ai
+        </a>
+      </div>
+
+      <!-- Cinematic simulator screen -->
+      <div class="video-monitor" id="videoMonitor">
+        
+        <!-- TIMELINE/SCENE OVERLAY SYSTEM -->
+        
+        <!-- SCENE 1 [0:00 - 0:20]: Opening Flash Floods -->
+        <div class="scene-content scene-opening active" id="scene-0">
+          <div style="font-size: 0.85rem; color: var(--primary); letter-spacing: 0.2em; font-weight: 700; margin-bottom: 1rem;">SCENE 1: THE DISASTER</div>
+          <div class="flash-visual">JUNE 2023 · HIMACHAL PRADESH</div>
+          <div style="font-size: 2.25rem; font-weight: 800; margin-top: 1rem; color: white; line-height: 1.2;">FLASH FLOODS</div>
+          <div style="color: var(--text-muted); margin-top: 1rem; font-family: var(--font-mono);">[ Atmospheric rain & sirens soundscape online ]</div>
+        </div>
+
+        <!-- SCENE 2 [0:20 - 0:45]: The Problem -->
+        <div class="scene-content scene-problem" id="scene-1">
+          <div style="font-size: 0.85rem; color: var(--primary); letter-spacing: 0.2em; font-weight: 700; margin-bottom: 1rem;">SCENE 2: THE PROBLEM</div>
+          <div class="signal-icon-container">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
+              <path d="M12 20h.01M17 16h.01M22 12h.01M7 16a5 5 0 0 1 0-7.07M2 20a9 9 0 0 1 0-12.72"/>
+            </svg>
+            <div class="no-service-badge">!</div>
+          </div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: white;">"NO SERVICE"</div>
+          <div style="color: var(--primary); font-family: var(--font-mono); margin-top: 0.5rem; font-weight: 700;">CONNECTION UNREACHABLE</div>
+          <div style="font-size: 0.95rem; color: var(--text-muted); margin-top: 1rem; max-width: 80%;">Every emergency assistant and server-based AI tool goes dead instantenously.</div>
+        </div>
+
+        <!-- SCENE 3 [0:45 - 1:10]: The Moment -->
+        <div class="scene-content scene-moment" id="scene-2">
+          <div style="font-size: 0.85rem; color: var(--secondary); letter-spacing: 0.2em; font-weight: 700; margin-bottom: 1rem;">SCENE 3: THE SPARK</div>
+          <div class="hindi-text">"मेरे बच्चे को चोट लगी है। मैं क्या करूँ?"</div>
+          <div class="english-translation">"My child is injured. What should I do?"</div>
+          <div style="margin-top: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <div class="stat-badge highlight">Offline Speech Input</div>
+            <span style="color: var(--text-muted); font-size: 0.8rem;">→</span>
+            <div class="stat-badge" style="color: var(--accent); border-color: rgba(16, 185, 129, 0.3);">Gemma 4 processing...</div>
+          </div>
+        </div>
+
+        <!-- SCENE 4 [1:10 - 1:45]: Demo Sequence -->
+        <div class="scene-content scene-demo" id="scene-3" style="text-align: left;">
+          <div>
+            <div style="font-size: 0.85rem; color: var(--secondary); letter-spacing: 0.2em; font-weight: 700; margin-bottom: 0.5rem;">SCENE 4: DEMO SEQUENCE</div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: white; margin-bottom: 0.5rem;">Running Offline</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">
+              Interact with the active <b>Phone Mockup</b> on the right to test voice input, offline maps, relief schemes, and local wound diagnostics!
+            </div>
+          </div>
+          <div style="border-left: 1px solid var(--border); padding-left: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="font-size: 0.8rem; font-family: var(--font-mono); color: var(--accent);"><span style="color: white;">✈️</span> Airplane Mode ON</div>
+            <div style="font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-muted);">· Zero latency local inference</div>
+            <div style="font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-muted);">· Locally encrypted RAG manuals</div>
+          </div>
+        </div>
+
+        <!-- SCENE 5 [1:45 - 2:10]: Tech Beat -->
+        <div class="scene-content scene-tech" id="scene-4">
+          <div style="font-size: 0.85rem; color: var(--secondary); letter-spacing: 0.2em; font-weight: 700; margin-bottom: 0.5rem;">SCENE 5: THE STACK</div>
+          <div style="font-size: 1.6rem; font-weight: 800; color: white;">Ollama & llama.cpp Engine</div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem; max-width: 90%;">Gemma 4 quantized weights running on standard mobile NPU / CPU.</div>
+          <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <div style="text-align: center;">
+              <div style="font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; color: var(--secondary);">1.8s</div>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">LATENCY</div>
+            </div>
+            <div style="text-align: center; border-left: 1px solid var(--border); padding-left: 1rem;">
+              <div style="font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; color: var(--accent);">4.2GB</div>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">RAM IMPACT</div>
+            </div>
+            <div style="text-align: center; border-left: 1px solid var(--border); padding-left: 1rem;">
+              <div style="font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; color: var(--primary);">12</div>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">LANGUAGES</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCENE 6 [2:10 - 2:40]: Vision -->
+        <div class="scene-content" id="scene-5" style="background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, rgba(0,0,0,1) 100%);">
+          <div style="font-size: 0.85rem; color: var(--primary); letter-spacing: 0.2em; font-weight: 700; margin-bottom: 1rem;">SCENE 6: THE VISION</div>
+          <div style="font-size: 1.75rem; font-weight: 800; color: white;">600 MILLION PEOPLE</div>
+          <div style="font-size: 1rem; color: var(--text-muted); margin-top: 0.5rem; max-width: 80%;">AI shouldn't be a privilege of high-bandwidth environments. Empowering clinics, flood response squads, and remote communities.</div>
+        </div>
+
+        <!-- SCENE 7 [2:40 - 3:00]: Close -->
+        <div class="scene-content" id="scene-6" style="background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, rgba(0,0,0,1) 100%);">
+          <div style="font-size: 0.85rem; color: var(--accent); letter-spacing: 0.2em; font-weight: 700; margin-bottom: 1rem;">SCENE 7: PERSISTENCE</div>
+          <div style="font-size: 2.25rem; font-weight: 800; color: white; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">
+            SAHAYAK <span style="color: var(--primary);">AI</span>
+          </div>
+          <div style="font-size: 1.1rem; color: var(--text-muted); margin-top: 0.5rem;">"When the internet dies, Sahayak lives."</div>
+          <div style="margin-top: 1.5rem; font-family: var(--font-mono); color: var(--secondary);">Built for India · Designed for the world</div>
+        </div>
+
+        <!-- Player controls overlay -->
+        <div class="player-controls">
+          <button class="btn-action" id="btnPlay" onclick="togglePlay()">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" id="playIcon">
+              <path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+            </svg>
+            <span id="playText">PLAY VIDEO SCENE</span>
+          </button>
+          
+          <div class="timeline-bar" onclick="seekTimeline(event)">
+            <div class="timeline-progress" id="timelineProgress"></div>
+          </div>
+
+          <div class="time-counter" id="timeCounter">0:00 / 3:00</div>
+        </div>
+      </div>
+
+      <!-- Dialogue/Subtitles display box -->
+      <div class="subtitle-display">
+        <div class="vo-label">VOICEOVER</div>
+        <div class="subtitle-text" id="subtitleText">
+          Click "PLAY VIDEO SCENE" above to initiate the cinematic walkthrough with atmospheric sound effects and synthesized voice synthesis narration.
+        </div>
+      </div>
+
+      <!-- Quick Scene Navigation Selector -->
+      <div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.05em;">Jump to Video Section</div>
+        <div class="scene-navigator">
+          <button class="nav-dot active" onclick="jumpToScene(0)" title="Opening [0:00–0:20]">01: Opening</button>
+          <button class="nav-dot" onclick="jumpToScene(1)" title="Problem [0:20–0:45]">02: The Problem</button>
+          <button class="nav-dot" onclick="jumpToScene(2)" title="The Moment [0:45–1:10]">03: The Moment</button>
+          <button class="nav-dot" onclick="jumpToScene(3)" title="Demo Sequence [1:10–1:45]">04: Demo</button>
+          <button class="nav-dot" onclick="jumpToScene(4)" title="Technical Beat [1:45–2:10]">05: Technical</button>
+          <button class="nav-dot" onclick="jumpToScene(5)" title="Vision [2:10–2:40]">06: Vision</button>
+          <button class="nav-dot" onclick="jumpToScene(6)" title="Close [2:40–3:00]">07: Close</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right column: Interactive Smartphone App Simulator & Technical Spec Sandbox -->
+    <div class="interactive-panel">
+      
+      <div>
+        <div class="section-title">Offline Sahayak AI Client Mockup</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <div style="width: 8px; height: 8px; background: var(--accent); border-radius: 50%;"></div>
+          Fully responsive simulator showing on-device processing.
+        </div>
+
+        <!-- Phone Bezel Container -->
+        <div class="phone-mockup" id="phoneContainer">
+          <div class="phone-camera"><div class="camera-lens"></div></div>
+          
+          <!-- Screen content -->
+          <div class="phone-screen">
+            
+            <!-- Network info bar -->
+            <div class="phone-status-bar">
+              <div>12:40 PM</div>
+              <div class="offline-indicator" id="airplaneStatus">
+                <span>✈️</span> <span style="font-weight: 800;">Offline (Airplane Mode)</span>
+              </div>
+            </div>
+
+            <!-- App Header info -->
+            <div class="app-header">
+              <div class="app-title">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                  <path d="M12.33 4.027a.5.5 0 0 1 .256.647l-1.5 3.5a.5.5 0 0 1-.72.238l-1.5-1a.5.5 0 0 1-.044-.805l1.5-1.5a.5.5 0 0 1 .657-.057l1.5 1 .151-.023zM8 4a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.146.354l-2 2a.5.5 0 0 1-.708-.708L7.5 7.207V4.5A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Sahayak AI
+              </div>
+              <div class="network-badge offline-mode" id="appModeBadge">Local Model</div>
+            </div>
+
+            <!-- App Chat / UI body area -->
+            <div class="app-body" id="appBody">
+              <!-- Initial emergency welcome card -->
+              <div class="feature-card" style="border-left: 3px solid var(--primary);">
+                <div style="font-weight: bold; color: white; display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.25rem;">
+                  <span>🚨</span> Disaster Assistant Mode
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">
+                  Locally loaded manuals: First Aid Guide, Disaster Response Handbook, Emergency Shelter Map.
+                </div>
+              </div>
+
+              <!-- Interactive features selector for demo -->
+              <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin: 0.25rem 0;">Test Offline AI Features</div>
+              
+              <!-- Quick tool items that simulate the RAG prompts -->
+              <div class="feature-card" onclick="simulateVoiceInput()" style="cursor: pointer;">
+                <div style="font-weight: bold; color: var(--secondary); display: flex; justify-content: space-between; align-items: center;">
+                  <span>🎙️ Voice Chat (Hindi)</span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">Try it</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Simulate voice prompt and get instant local audio instruction.
+                </div>
+              </div>
+
+              <div class="feature-card" onclick="simulateWoundScanner()" style="cursor: pointer;">
+                <div style="font-weight: bold; color: var(--secondary); display: flex; justify-content: space-between; align-items: center;">
+                  <span>📸 Wound Assessment</span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">Scan</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Assess injury diagnostic completely on-device.
+                </div>
+              </div>
+
+              <div class="feature-card" onclick="simulateOfflineMap()" style="cursor: pointer;">
+                <div style="font-weight: bold; color: var(--secondary); display: flex; justify-content: space-between; align-items: center;">
+                  <span>🗺️ Nearest Shelter Map</span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">View</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Loads offline emergency shelters inside 50km radius.
+                </div>
+              </div>
+
+              <div class="feature-card" onclick="simulateGovSchemes()" style="cursor: pointer;">
+                <div style="font-weight: bold; color: var(--secondary); display: flex; justify-content: space-between; align-items: center;">
+                  <span>🏛️ Relief Relief Schemes</span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">List</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Extract details of NDRF relief parameters stored in offline RAG database.
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Chat input mockup -->
+            <div class="app-input-bar">
+              <button class="app-btn-round" onclick="simulateVoiceInput()" title="Voice Input">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M5 3a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0V3z"/>
+                  <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+                </svg>
+              </button>
+              <input type="text" class="app-input" id="appMessageInput" placeholder="Ask offline assistant..." onkeydown="if(event.key === 'Enter') handleAppInput()">
+              <button class="app-btn-round" onclick="handleAppInput()" title="Send">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494z"/>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Developer spec console showing Gemma 4 telemetry -->
+      <div class="dev-sandbox">
+        <div class="section-title" style="margin-bottom: 0.5rem;">Gemma 4 Local Engine Telemetry</div>
+        
+        <div class="arch-diagram">
+          <div class="arch-node active" id="node-engine">
+            <div>
+              <div style="font-weight: bold; color: white;">Llama.cpp / Ollama Server</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Core Inference Engine</div>
+            </div>
+            <div class="stat-badge highlight">Running (Local)</div>
+          </div>
+          
+          <div class="arch-connector">▼ RAG Context Injection</div>
+
+          <div class="arch-node" id="node-rag">
+            <div>
+              <div style="font-weight: bold;">Embedded Disaster Manuals</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">SentenceTransformer SQLite Vector store</div>
+            </div>
+            <div class="stat-badge" id="ragBadge">Ready (Offline)</div>
+          </div>
+        </div>
+
+        <!-- Simulated terminal printout -->
+        <div class="terminal-header">
+          <div class="terminal-dots">
+            <div class="dot red"></div>
+            <div class="dot yellow"></div>
+            <div class="dot green"></div>
+          </div>
+          <span style="font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-muted);">local_gemma4_node.sh</span>
+        </div>
+        <div class="terminal-view" id="terminalView">
+[SYSTEM] Initializing Ollama engine on target phone...
+[SYSTEM] Loading quantized Gemma 4 weights (gemma4-4bit.gguf)
+[SYSTEM] NPU / RAM bounds checked. All systems functional.
+[SYSTEM] Low latency configuration applied.
+[READY] Standing by for offline queries.
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    // Sound synthesis engine using Web Audio API for immersive cinematic feel
+    let audioCtx = null;
+    let rainNode = null;
+    let staticNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      
+      // Setup audio context
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      // Synthesize rain noise
+      const bufferSize = 2 * audioCtx.sampleRate;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      // Filter for rain sound (low-pass)
+      const lowpassFilter = audioCtx.createBiquadFilter();
+      lowpassFilter.type = 'lowpass';
+      lowpassFilter.frequency.value = 350;
+
+      // Filter for rain high frequency patter
+      const bandpassFilter = audioCtx.createBiquadFilter();
+      bandpassFilter.type = 'peaking';
+      bandpassFilter.frequency.value = 2500;
+      bandpassFilter.Q.value = 1.0;
+      bandpassFilter.gain.value = 5;
+
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.15; // Soft rain sound
+
+      // Connect nodes
+      whiteNoise.connect(lowpassFilter);
+      lowpassFilter.connect(bandpassFilter);
+      bandpassFilter.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      whiteNoise.start();
+      rainNode = { source: whiteNoise, gain: gainNode };
+
+      // Crackling static noise synthesis
+      const staticBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const staticOutput = staticBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        staticOutput[i] = Math.random() * 2 - 1;
+      }
+
+      const staticNoiseSource = audioCtx.createBufferSource();
+      staticNoiseSource.buffer = staticBuffer;
+      staticNoiseSource.loop = true;
+
+      const staticHighpass = audioCtx.createBiquadFilter();
+      staticHighpass.type = 'highpass';
+      staticHighpass.frequency.value = 2000;
+
+      const staticGain = audioCtx.createGain();
+      staticGain.gain.value = 0.02; // Very faint hum
+
+      staticNoiseSource.connect(staticHighpass);
+      staticHighpass.connect(staticGain);
+      staticGain.connect(audioCtx.destination);
+      
+      staticNoiseSource.start();
+      staticNode = { source: staticNoiseSource, gain: staticGain };
+    }
+
+    function adjustRainVolume(volume) {
+      if (rainNode) {
+        rainNode.gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      }
+    }
+
+    function adjustStaticVolume(volume) {
+      if (staticNode) {
+        staticNode.gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      }
+    }
+
+    // Rain drop generator animation
+    const rainOverlay = document.getElementById('rainOverlay');
+    function generateRaindrops() {
+      rainOverlay.innerHTML = '';
+      const width = window.innerWidth;
+      for (let i = 0; i < 40; i++) {
+        const drop = document.createElement('div');
+        drop.className = 'rain-drop';
+        drop.style.left = Math.random() * width + 'px';
+        drop.style.animationDuration = (0.5 + Math.random() * 0.5) + 's';
+        drop.style.animationDelay = Math.random() * 2 + 's';
+        rainOverlay.appendChild(drop);
+      }
+    }
+
+    // Video Scenes Metadata & Timeline Pacing
+    const scenes = [
+      {
+        id: 0,
+        title: "Opening Flash Floods",
+        timeRange: [0, 20],
+        vo: "June 2023. Himachal Pradesh. Flash floods. Roads gone. Towers down. Internet — dead. 47,000 people. No guidance. No help.",
+        action: () => {
+          document.getElementById('rainOverlay').classList.add('active');
+          if(audioCtx) {
+            adjustRainVolume(0.35);
+            adjustStaticVolume(0.08);
+          }
+          // Reset phone mockup to disconnected look
+          document.getElementById('phoneContainer').style.boxShadow = "0 25px 50px -12px rgba(0,0,0,0.8), 0 0 40px rgba(239, 68, 68, 0.15)";
+          document.getElementById('airplaneStatus').innerHTML = "<span>⚠️</span> <span style='font-weight: 800; color: var(--primary);'>No Connection</span>";
+          document.getElementById('appModeBadge').className = "network-badge";
+          document.getElementById('appModeBadge').innerText = "Disconnected";
+        }
+      },
+      {
+        id: 1,
+        title: "The Problem",
+        timeRange: [20, 45],
+        vo: "In every disaster, the first thing that fails is connectivity. And every AI assistant, every emergency app — they all need the internet. The moment people need help most… AI goes silent.",
+        action: () => {
+          if(audioCtx) {
+            adjustRainVolume(0.15);
+            adjustStaticVolume(0.15); // Loud crackling static
+          }
+          document.getElementById('node-engine').className = "arch-node";
+          document.getElementById('node-rag').className = "arch-node";
+        }
+      },
+      {
+        id: 2,
+        title: "The Moment",
+        timeRange: [45, 70],
+        vo: "Mere bachche ko chot lagi hai. Main kya karun? (My child is injured. What should I do?) Beat. Silence. Then — phone screen lights up. App UI appears. Gemma 4 processes locally. Ghabrao mat. Pehle yeh karo...",
+        action: () => {
+          if(audioCtx) {
+            adjustRainVolume(0.05);
+            adjustStaticVolume(0.02);
+          }
+          // Simulate screen turning on
+          document.getElementById('phoneContainer').style.boxShadow = "0 25px 50px -12px rgba(0,0,0,0.8), 0 0 40px var(--secondary-glow)";
+          document.getElementById('airplaneStatus').innerHTML = "<span>✈️</span> <span style='font-weight: 800; color: var(--secondary);'>Airplane Mode</span>";
+          document.getElementById('appModeBadge').className = "network-badge offline-mode";
+          document.getElementById('appModeBadge').innerText = "Local Gemma 4";
+          
+          // Clear current chat and show prompt
+          const appBody = document.getElementById('appBody');
+          appBody.innerHTML = `
+            <div class="chat-bubble user">
+              Mere bachche ko chot lagi hai. Main kya karun?
+            </div>
+            <div class="chat-bubble ai" style="border-color: var(--primary);">
+              <b>Sahayak AI:</b> Ghabrao mat (Don't panic). First, execute these immediate actions:
+              <br><br>1. Clean any visible dirt around the cut with clean bottled/boiled water.
+              <br>2. Apply continuous pressure using a clean cloth for 5 minutes.
+            </div>
+          `;
+        }
+      },
+      {
+        id: 3,
+        title: "Demo Sequence",
+        timeRange: [70, 105],
+        vo: "Sahayak AI. Powered by Gemma 4. Running entirely on-device. Voice input in Hindi responds in Hindi. Photo diagnostics assess wound risks. Offline maps reveal nearby shelters. Relief schemes show NDRF protocols. Airplane mode remains visible throughout.",
+        action: () => {
+          document.getElementById('node-engine').className = "arch-node active";
+          document.getElementById('node-rag').className = "arch-node active";
+          
+          // Highlight that user can interact with right pane
+          const appBody = document.getElementById('appBody');
+          appBody.innerHTML = `
+            <div class="feature-card" style="border-color: var(--secondary); animation: pulse-slow 2s infinite;">
+              <div style="font-weight: bold; color: var(--secondary);">✨ Interactive Demo Simulator</div>
+              <div style="font-size: 0.8rem; color: var(--text-main); margin-top: 0.25rem;">
+                Click any of the test cards below the phone header to witness offline mapping, wound assessment, and scheme retrieval live!
+              </div>
+            </div>
+          `;
+          restorePhoneDefaultOptions();
+        }
+      },
+      {
+        id: 4,
+        title: "Technical Beat",
+        timeRange: [105, 130],
+        vo: "Gemma 4 runs locally via Ollama and llama.cpp. No cloud. No API. No latency. A local RAG pipeline retrieves from embedded disaster manuals. Whisper handles speech. IndicTrans handles 12 Indian languages. Low 1.8s response time, 4.2GB RAM footprint.",
+        action: () => {
+          // Log tech stuff to terminal
+          const terminal = document.getElementById('terminalView');
+          terminal.innerHTML += `\n[INFERENCE] Triggered RAG query embedding generator...`;
+          terminal.innerHTML += `\n[DATABASE] Querying offline SQLite vector index`;
+          terminal.innerHTML += `\n[ENG] Local Gemma4 response generated in 1.78s`;
+          terminal.innerHTML += `\n[STATS] RAM Peak: 4.18 GB | VRAM: 0.00 (CPU optimized)`;
+          terminal.scrollTop = terminal.scrollHeight;
+        }
+      },
+      {
+        id: 5,
+        title: "Vision",
+        timeRange: [130, 160],
+        vo: "600 million people live where connectivity is a luxury, not a given. For them, AI has never been accessible — until now. Sahayak doesn't need a data center. It needs Gemma 4 and a charged phone. That's it.",
+        action: () => {
+          if(audioCtx) {
+            adjustRainVolume(0.08);
+          }
+        }
+      },
+      {
+        id: 6,
+        title: "Close",
+        timeRange: [160, 180],
+        vo: "When the internet dies, Sahayak lives. Built for India. Designed for the world. Sahayak AI.",
+        action: () => {
+          if(audioCtx) {
+            adjustRainVolume(0.02);
+            adjustStaticVolume(0.0);
+          }
+        }
+      }
+    ];
+
+    let currentSceneIdx = 0;
+    let playbackSeconds = 0;
+    let isPlaying = false;
+    let playbackInterval = null;
+
+    function togglePlay() {
+      initAudio();
+      generateRaindrops();
+      
+      if (isPlaying) {
+        pausePlayback();
+      } else {
+        startPlayback();
+      }
+    }
+
+    function startPlayback() {
+      isPlaying = true;
+      document.getElementById('playText').innerText = "PAUSE SCENE";
+      document.getElementById('playIcon').innerHTML = `<path d="M6 3.5a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5zm4 0a.5.5 0 0 1 .5.5v8a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5z"/>`;
+      
+      playbackInterval = setInterval(() => {
+        playbackSeconds += 1;
+        if (playbackSeconds >= 180) {
+          playbackSeconds = 0;
+          pausePlayback();
+        }
+        updateTimelineDisplay();
+        checkSceneTrigger();
+      }, 1000);
+    }
+
+    function pausePlayback() {
+      isPlaying = false;
+      document.getElementById('playText').innerText = "RESUME SCENE";
+      document.getElementById('playIcon').innerHTML = `<path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>`;
+      clearInterval(playbackInterval);
+    }
+
+    function seekTimeline(event) {
+      const bar = event.currentTarget;
+      const rect = bar.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const width = rect.width;
+      const percentage = clickX / width;
+      playbackSeconds = Math.floor(percentage * 180);
+      updateTimelineDisplay();
+      
+      // Determine which scene matches the seconds
+      let matchedIdx = 0;
+      scenes.forEach((scene, index) => {
+        if (playbackSeconds >= scene.timeRange[0] && playbackSeconds < scene.timeRange[1]) {
+          matchedIdx = index;
+        }
+      });
+      jumpToScene(matchedIdx, false);
+    }
+
+    function updateTimelineDisplay() {
+      const percentage = (playbackSeconds / 180) * 100;
+      document.getElementById('timelineProgress').style.width = percentage + '%';
+      
+      const mins = Math.floor(playbackSeconds / 60);
+      const secs = playbackSeconds % 60;
+      document.getElementById('timeCounter').innerText = `${mins}:${secs.toString().padStart(2, '0')} / 3:00`;
+    }
+
+    function checkSceneTrigger() {
+      scenes.forEach((scene, index) => {
+        if (playbackSeconds === scene.timeRange[0]) {
+          jumpToScene(index, false);
+        }
+      });
+    }
+
+    function jumpToScene(index, adjustTime = true) {
+      currentSceneIdx = index;
+      const scene = scenes[index];
+
+      // Update Nav Dots active state
+      const dots = document.querySelectorAll('.nav-dot');
+      dots.forEach((dot, dIdx) => {
+        if (dIdx === index) {
+          dot.classList.add('active');
+        } else {
+          dot.classList.remove('active');
+        }
+      });
+
+      // Update video monitor content
+      const contentPanels = document.querySelectorAll('.scene-content');
+      contentPanels.forEach((panel) => {
+        panel.classList.remove('active');
+      });
+      document.getElementById(`scene-${index}`).classList.add('active');
+
+      // Update subtitle/narrator text
+      document.getElementById('subtitleText').innerText = scene.vo;
+
+      // Trigger Web Speech synthesis for Voiceover reading
+      speakVoiceover(scene.vo);
+
+      // Adjust timeline playback seconds if jumped manually
+      if (adjustTime) {
+        playbackSeconds = scene.timeRange[0];
+        updateTimelineDisplay();
+      }
+
+      // Execute custom scene action
+      scene.action();
+    }
+
+    // Voice synthesis function using local browser voices
+    let speechUtterance = null;
+    function speakVoiceover(text) {
+      if (!window.speechSynthesis) return;
+      
+      // Stop previous utterance
+      window.speechSynthesis.cancel();
+
+      // Clean narration text to speak
+      // (remove bracket remarks like "Beat. Silence.")
+      const cleanText = text.replace(/\([^)]*\)/g, "").replace(/Beat\./gi, "").replace(/Silence\./gi, "");
+
+      speechUtterance = new SpeechSynthesisUtterance(cleanText);
+      speechUtterance.rate = 1.05; // Slightly faster for natural flow
+      speechUtterance.pitch = 0.95; // Deep, confident cinematic voice
+
+      // Try to find a male or clean narrative English voice
+      const voices = window.speechSynthesis.getVoices();
+      const narrativeVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('David')));
+      if (narrativeVoice) {
+        speechUtterance.voice = narrativeVoice;
+      }
+
+      window.speechSynthesis.speak(speechUtterance);
+    }
+
+    // Offline app interactive actions
+    function restorePhoneDefaultOptions() {
+      const appBody = document.getElementById('appBody');
+      // Append initial options
+      appBody.innerHTML += `
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-top: 0.5rem;" id="optionsHeader">Test Panel</div>
+        
+        <div class="feature-card" onclick="simulateVoiceInput()" style="cursor: pointer;" id="opt-1">
+          <div style="font-weight: bold; color: var(--secondary);">🎙️ Voice Chat (Hindi)</div>
+        </div>
+
+        <div class="feature-card" onclick="simulateWoundScanner()" style="cursor: pointer;" id="opt-2">
+          <div style="font-weight: bold; color: var(--secondary);">📸 Wound Assessment</div>
+        </div>
+
+        <div class="feature-card" onclick="simulateOfflineMap()" style="cursor: pointer;" id="opt-3">
+          <div style="font-weight: bold; color: var(--secondary);">🗺️ Nearest Shelter Map</div>
+        </div>
+
+        <div class="feature-card" onclick="simulateGovSchemes()" style="cursor: pointer;" id="opt-4">
+          <div style="font-weight: bold; color: var(--secondary);">🏛️ Relief Relief Schemes</div>
+        </div>
+      `;
+    }
+
+    function simulateVoiceInput() {
+      const appBody = document.getElementById('appBody');
+      appBody.innerHTML = `
+        <div class="chat-bubble user">
+          "Mere bachche ko chot lagi hai. Main kya karun?" (Voice Prompt)
+        </div>
+        <div class="chat-bubble ai">
+          <b>Sahayak AI:</b> Ghabrao mat. Pehle yeh karo:
+          <br><br>1. Clean the cut area immediately with clean water.
+          <br>2. Apply constant pressure with a clean cloth to stop blood loss.
+          <br>3. Keep the limb elevated if possible.
+          <br><br><i>[Voice reads this aloud offline in Hindi/English]</i>
+        </div>
+      `;
+      // Play brief local synthesized response voice
+      speakVoiceover("Don't panic. First, clean the cut area immediately with clean water, then apply constant pressure to stop blood loss.");
+      
+      // Update developer telemetry
+      const terminal = document.getElementById('terminalView');
+      terminal.innerHTML += `\n[VOICE] Received Speech Input (Hindi)`;
+      terminal.innerHTML += `\n[INDIC] Translating: "Mere bachche ko chot lagi hai. Main kya karun?"`;
+      terminal.innerHTML += `\n[RAG] Scanning local index for "wound care", "child bleed stop"`;
+      terminal.innerHTML += `\n[INF] Gemma4 responded in 1.2s`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function simulateWoundScanner() {
+      const appBody = document.getElementById('appBody');
+      appBody.innerHTML = `
+        <div class="chat-bubble user">
+          📷 Wound Photo Captured (Offline Assessment)
+        </div>
+        <div class="feature-card" style="border-left: 3px solid var(--primary);">
+          <div style="font-weight: bold; color: white;">Diagnostic: Minor Laceration</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Risk assessment: Low danger score. No deep arterial bleed detected.
+          </div>
+          <div style="font-size: 0.8rem; margin-top: 0.5rem;">
+            <b>First Aid:</b> Clean with water, apply antiseptic cream, and cover. Seek standard clinic review within 24 hours.
+          </div>
+        </div>
+      `;
+      
+      const terminal = document.getElementById('terminalView');
+      terminal.innerHTML += `\n[VISION] Raw image vector input processed by local vision engine`;
+      terminal.innerHTML += `\n[INF] Target identified: Laceration, superficial. Risk score: Low.`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function simulateOfflineMap() {
+      const appBody = document.getElementById('appBody');
+      appBody.innerHTML = `
+        <div class="chat-bubble user">
+          "Nearest emergency shelter?"
+        </div>
+        <div class="chat-bubble ai">
+          <b>Sahayak AI:</b> Nearest active flood evacuation shelter is located 2.3km North-West of your current location.
+        </div>
+        <div class="offline-map">
+          <div class="map-grid"></div>
+          <div class="user-marker" title="You (Offline)"></div>
+          <div class="shelter-marker">
+            <div class="marker-dot"></div>
+            <div style="font-size: 0.65rem; background: rgba(0,0,0,0.8); padding: 2px 4px; border-radius: 4px; color: white; white-space: nowrap; margin-top: 4px;">Shelter #4 (2.3km)</div>
+          </div>
+        </div>
+      `;
+      
+      const terminal = document.getElementById('terminalView');
+      terminal.innerHTML += `\n[GPS] Local coordinate cache retrieved (Offline SQLite GIS)`;
+      terminal.innerHTML += `\n[RAG] Shelter database matches 1 location inside 5km`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function simulateGovSchemes() {
+      const appBody = document.getElementById('appBody');
+      appBody.innerHTML = `
+        <div class="chat-bubble user">
+          "What government help can I get?"
+        </div>
+        <div class="chat-bubble ai">
+          <b>Sahayak AI:</b> According to offline disaster registry schemas, you qualify for immediate flood relief support:
+        </div>
+        <div class="scheme-card">
+          <div style="font-weight: bold; color: var(--secondary); font-size: 0.8rem;">NDRF Relief Fund</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Immediate grant of ₹4,000 for clothing/utensils and standard compensation schema for loss of crops/shelter.
+          </div>
+        </div>
+        <div class="scheme-card" style="margin-top: 0.4rem;">
+          <div style="font-weight: bold; color: var(--secondary); font-size: 0.8rem;">PM Aawas Yojana (Emergency)</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+            Reconstruction aid up to ₹1,20,000 for fully destroyed rural residential shelters.
+          </div>
+        </div>
+      `;
+      
+      const terminal = document.getElementById('terminalView');
+      terminal.innerHTML += `\n[RAG] Loaded scheme registry from local database (last synchronized May 2026)`;
+      terminal.innerHTML += `\n[INF] Match found: NDRF flood protocols, PM Aawas schemes.`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function handleAppInput() {
+      const input = document.getElementById('appMessageInput');
+      const val = input.value.trim();
+      if (!val) return;
+
+      const appBody = document.getElementById('appBody');
+      appBody.innerHTML = `
+        <div class="chat-bubble user">${val}</div>
+        <div class="chat-bubble ai">
+          <b>Sahayak AI:</b> Performing RAG search entirely offline on local model Gemma 4...
+          <br><br>Searching local database manuals for queries relating to "${val}". Response generated locally.
+        </div>
+      `;
+      input.value = '';
+
+      const terminal = document.getElementById('terminalView');
+      terminal.innerHTML += `\n[USER] Prompt: "${val}"`;
+      terminal.innerHTML += `\n[RAG] Offline local context search initialized...`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+  </script>
+
+</body>
+</html>

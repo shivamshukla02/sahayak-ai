@@ -1,0 +1,3174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sahayak AI: Offline multilingual emergency response system powered by local Gemma 4, ChromaDB, and Whisper. Fully interactive dashboard showing client UI and system logs.">
+  <title>Sahayak AI - Offline Multilingual Emergency Response</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS for Online Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <style>
+    :root {
+      --bg-space: #06090e;
+      --bg-surface: #0c121d;
+      --bg-panel: #111a2e;
+      --primary-red: #f43f5e;
+      --primary-red-glow: rgba(244, 63, 94, 0.25);
+      --secondary-cyan: #06b6d4;
+      --secondary-cyan-glow: rgba(6, 182, 212, 0.25);
+      --success-green: #10b981;
+      --success-green-glow: rgba(16, 185, 129, 0.25);
+      --warning-amber: #f59e0b;
+      --text-main: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --font-sans: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --card-radius: 16px;
+      --transition-speed: 0.3s;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+
+    body {
+      background-color: var(--bg-space);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: rgba(12, 18, 29, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-logo {
+      background: linear-gradient(135deg, var(--primary-red) 0%, #be123c 100%);
+      color: white;
+      font-weight: 800;
+      font-size: 1.25rem;
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px var(--primary-red-glow);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-logo svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    .brand-title-wrap h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-title-wrap span {
+      font-size: 0.75rem;
+      color: var(--secondary-cyan);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .quick-specs {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .spec-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .spec-item span.indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--success-green);
+      box-shadow: 0 0 8px var(--success-green-glow);
+    }
+
+    .spec-item span.indicator.pulse {
+      animation: blink 1.5s infinite alternate;
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    /* Main Container */
+    .dashboard-container {
+      display: grid;
+      grid-template-columns: minmax(360px, 420px) 1fr;
+      flex-grow: 1;
+      height: calc(100vh - 65px);
+      max-height: calc(100vh - 65px);
+      overflow: hidden;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+      }
+    }
+
+    /* Left Panel - Smartphone Simulator */
+    .simulator-panel {
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, rgba(12, 18, 29, 0.4) 0%, rgba(6, 9, 14, 0.8) 100%);
+      padding: 1.5rem 0.5rem;
+      overflow-y: auto;
+    }
+
+    .phone-bezel {
+      width: 360px;
+      height: 720px;
+      background: #020205;
+      border: 12px solid #1f2937;
+      border-radius: 44px;
+      box-shadow: 0 25px 60px -15px rgba(0,0,0,0.9), 0 0 50px rgba(6, 182, 212, 0.05);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    .phone-camera {
+      width: 120px;
+      height: 26px;
+      background: #1f2937;
+      border-radius: 0 0 16px 16px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .phone-camera-lens {
+      width: 8px;
+      height: 8px;
+      background: #090d16;
+      border-radius: 50%;
+      box-shadow: inset 0 0 3px #374151;
+    }
+
+    /* Phone Status Bar */
+    .phone-status-bar {
+      height: 28px;
+      padding: 0 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 999;
+      background: linear-gradient(180deg, rgba(2, 2, 5, 0.8) 0%, transparent 100%);
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-right {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .phone-screen {
+      flex-grow: 1;
+      margin-top: 28px;
+      background-color: var(--bg-space);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Screen Views - State Routing Sim */
+    .phone-view {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      animation: fade-slide 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .phone-view.active {
+      display: flex;
+    }
+
+    @keyframes fade-slide {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Navigation Bar inside phone */
+    .phone-nav-bar {
+      height: 48px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 0.5rem;
+      z-index: 900;
+    }
+
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: var(--text-secondary);
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 0.65rem;
+      font-family: var(--font-sans);
+      gap: 0.2rem;
+      width: 20%;
+      transition: color var(--transition-speed);
+    }
+
+    .nav-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    .nav-btn.active {
+      color: var(--secondary-cyan);
+    }
+
+    .nav-btn.sos-nav {
+      color: var(--primary-red);
+    }
+
+    /* SPECIFIC SCREENS */
+
+    /* 1. Onboarding Screen */
+    .onboarding-screen {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-space) 100%);
+    }
+
+    .onboard-header {
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .onboard-header h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 0.5rem;
+    }
+
+    .onboard-header p {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .onboard-content {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1.25rem;
+      margin: 1.5rem 0;
+    }
+
+    /* Sub-slides in Onboarding */
+    .onboard-slide {
+      display: none;
+      flex-direction: column;
+      gap: 0.8rem;
+      animation: fade-in 0.3s ease-out;
+    }
+
+    .onboard-slide.active {
+      display: flex;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .lang-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.6rem;
+    }
+
+    .lang-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      padding: 0.75rem;
+      border-radius: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-speed);
+    }
+
+    .lang-card:hover, .lang-card.selected {
+      background: var(--secondary-cyan-glow);
+      border-color: var(--secondary-cyan);
+    }
+
+    .lang-card .native {
+      font-weight: 700;
+      font-size: 1rem;
+      display: block;
+    }
+
+    .lang-card .name {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    /* Slide 2: District Selection */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .form-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.75rem;
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      outline: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .form-select:focus {
+      border-color: var(--secondary-cyan);
+    }
+
+    /* Slide 3: Knowledge Base Synchronization */
+    .sync-container {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .sync-loader {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 4px solid var(--border-color);
+      border-top-color: var(--secondary-cyan);
+      margin: 0 auto;
+      animation: spin 1s infinite linear;
+    }
+
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    .progress-bar-wrap {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--secondary-cyan), var(--success-green));
+      transition: width 0.1s linear;
+    }
+
+    .sync-status-msg {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--secondary-cyan);
+    }
+
+    .onboard-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .btn-action {
+      flex-grow: 1;
+      background: linear-gradient(135deg, var(--secondary-cyan) 0%, #0891b2 100%);
+      color: black;
+      border: none;
+      padding: 0.8rem;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: opacity var(--transition-speed);
+      box-shadow: 0 4px 12px var(--secondary-cyan-glow);
+    }
+
+    .btn-action:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-action.secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      box-shadow: none;
+    }
+
+    /* 2. Home Screen */
+    .home-screen {
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .home-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .mode-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-color);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .mode-label {
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--success-green);
+    }
+
+    .mode-label.offline {
+      color: var(--primary-red);
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 32px;
+      height: 18px;
+    }
+
+    .switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--primary-red);
+      transition: .4s;
+      border-radius: 18px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--success-green);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(14px);
+    }
+
+    .lang-badge-selector {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-size: 0.75rem;
+      font-weight: bold;
+      padding: 3px 8px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    /* Centered SOS Trigger Area */
+    .sos-area {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      position: relative;
+    }
+
+    .sos-pulse-ring-outer {
+      position: relative;
+      width: 160px;
+      height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pulse-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: var(--primary-red);
+      opacity: 0.15;
+      border-radius: 50%;
+      animation: pulse-ring-anim 2s infinite ease-out;
+    }
+
+    .pulse-ring.delayed {
+      animation-delay: 1s;
+    }
+
+    @keyframes pulse-ring-anim {
+      0% { transform: scale(0.8); opacity: 0.3; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+
+    .sos-btn-main {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary-red) 0%, #be123c 100%);
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 30px var(--primary-red-glow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: white;
+      z-index: 10;
+      transition: transform 0.2s;
+    }
+
+    .sos-btn-main:active {
+      transform: scale(0.95);
+    }
+
+    .sos-btn-main svg {
+      width: 32px;
+      height: 32px;
+      fill: currentColor;
+      margin-bottom: 0.25rem;
+    }
+
+    .sos-btn-main span.label {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+
+    .sos-btn-main span.sub-label {
+      font-size: 0.55rem;
+      text-transform: uppercase;
+      opacity: 0.8;
+      letter-spacing: 0.02em;
+    }
+
+    .sos-instruction {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-align: center;
+      max-width: 220px;
+    }
+
+    /* Quick Action Cards Grid */
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.6rem;
+      margin-top: 0.5rem;
+    }
+
+    .quick-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.75rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      transition: all var(--transition-speed);
+    }
+
+    .quick-card:hover {
+      background: var(--secondary-cyan-glow);
+      border-color: var(--secondary-cyan);
+    }
+
+    .quick-card-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--secondary-cyan);
+    }
+
+    .quick-card-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    .quick-card-title {
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    .quick-card-desc {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+    }
+
+    /* 3. Emergency Mode (High Contrast Red focus) */
+    .emergency-screen {
+      background-color: #000000 !important;
+      padding: 1.5rem 1.25rem;
+      color: #ffffff;
+      font-size: 18px; /* High Contrast default big font */
+      overflow-y: auto;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .emerg-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--primary-red);
+      padding-bottom: 0.75rem;
+    }
+
+    .emerg-title {
+      color: var(--primary-red);
+      font-weight: 900;
+      font-size: 1.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-emerg-close {
+      background: #ffffff;
+      color: #000000;
+      border: none;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .emerg-body {
+      flex-grow: 1;
+      margin: 1.25rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* Single-tap large cards */
+    .step-card {
+      background: #0d0d0d;
+      border: 2px solid #333333;
+      border-radius: 12px;
+      padding: 1rem;
+      cursor: pointer;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      transition: border-color var(--transition-speed);
+    }
+
+    .step-card:active, .step-card.active {
+      border-color: var(--primary-red);
+      background: #1a080a;
+    }
+
+    .step-num {
+      background: var(--primary-red);
+      color: #ffffff;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .step-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .step-title {
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #ffffff;
+    }
+
+    .step-desc {
+      font-size: 0.8rem;
+      color: #b3b3b3;
+      line-height: 1.4;
+    }
+
+    /* SOS Mesh Share Area */
+    .mesh-share-panel {
+      background: #111111;
+      border: 1px dashed #444444;
+      border-radius: 12px;
+      padding: 0.8rem;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .mesh-share-panel:active {
+      background: #1a1a1a;
+    }
+
+    .beacon-wave {
+      display: inline-block;
+      position: relative;
+      width: 36px;
+      height: 36px;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+    }
+
+    .wave-circle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 10px;
+      height: 10px;
+      background: var(--primary-red);
+      border-radius: 50%;
+    }
+
+    .wave-ring {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      border: 2px solid var(--primary-red);
+      border-radius: 50%;
+      opacity: 0;
+      animation: wave-ring-anim 1.5s infinite linear;
+    }
+
+    @keyframes wave-ring-anim {
+      0% { transform: scale(0.3); opacity: 0.8; }
+      100% { transform: scale(1.1); opacity: 0; }
+    }
+
+    .mesh-status-text {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: var(--primary-red);
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .mesh-sub {
+      font-size: 0.65rem;
+      color: #888888;
+      font-family: var(--font-mono);
+      margin-top: 0.3rem;
+    }
+
+    /* 4. Voice Chat Assistant Screen */
+    .voice-screen {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .voice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .voice-title {
+      font-weight: 800;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--secondary-cyan);
+    }
+
+    .voice-eyes-free-toggle {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 12px;
+      cursor: pointer;
+    }
+
+    .voice-eyes-free-toggle.active {
+      background: var(--primary-red);
+      color: white;
+      border-color: var(--primary-red);
+    }
+
+    .voice-middle {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+      position: relative;
+    }
+
+    /* Canvas soundwave simulator */
+    .wave-canvas-wrap {
+      width: 100%;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #waveCanvas {
+      width: 100%;
+      height: 100px;
+      background: transparent;
+    }
+
+    .voice-transcript-area {
+      width: 100%;
+      max-height: 140px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.75rem;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .transcript-bubble {
+      padding: 6px 10px;
+      border-radius: 8px;
+      max-width: 90%;
+    }
+
+    .transcript-bubble.user {
+      align-self: flex-end;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    .transcript-bubble.ai {
+      align-self: flex-start;
+      background: var(--secondary-cyan-glow);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: #e2f8fc;
+    }
+
+    .voice-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .mic-button-wrap {
+      position: relative;
+      width: 72px;
+      height: 72px;
+    }
+
+    .mic-btn-main {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--secondary-cyan) 0%, #0891b2 100%);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: black;
+      box-shadow: 0 8px 24px var(--secondary-cyan-glow);
+      transition: all 0.2s;
+    }
+
+    .mic-btn-main:active {
+      transform: scale(0.95);
+    }
+
+    .mic-btn-main svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+
+    .mic-btn-main.recording {
+      background: linear-gradient(135deg, var(--primary-red) 0%, #dc2626 100%);
+      box-shadow: 0 8px 24px var(--primary-red-glow);
+      color: white;
+      animation: record-pulse 1.2s infinite alternate;
+    }
+
+    @keyframes record-pulse {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.08); }
+    }
+
+    .mic-instruction {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    /* Eyes free overlay screen */
+    .eyes-free-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: #000000;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      color: #ffffff;
+    }
+
+    .eyes-free-overlay.active {
+      display: flex;
+    }
+
+    .eyes-free-wave {
+      width: 140px;
+      height: 140px;
+      border: 4px solid var(--primary-red);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2rem;
+      animation: wave-ring-anim 2s infinite ease-out;
+    }
+
+    .eyes-free-text {
+      font-size: 1.2rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+    }
+
+    /* 5. Scheme Navigator Screen */
+    .schemes-screen {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .schemes-header {
+      margin-bottom: 0.75rem;
+    }
+
+    .schemes-title {
+      font-weight: 800;
+      font-size: 1rem;
+      color: var(--text-main);
+    }
+
+    .schemes-sub {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .schemes-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 2px;
+      margin-bottom: 0.75rem;
+    }
+
+    .scheme-details-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: all var(--transition-speed);
+    }
+
+    .scheme-details-card:hover {
+      border-color: var(--secondary-cyan);
+    }
+
+    .scheme-name-tag {
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: var(--secondary-cyan);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .scheme-badge {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--success-green);
+      font-size: 0.6rem;
+      font-family: var(--font-mono);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .scheme-desc-text {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 0.25rem;
+      line-height: 1.4;
+    }
+
+    .scheme-expanded-info {
+      display: none;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border-color);
+      font-size: 0.7rem;
+      color: var(--text-main);
+    }
+
+    .scheme-expanded-info.active {
+      display: block;
+    }
+
+    /* Eligibility Checker Form */
+    .eligibility-checker-box {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .eligibility-checker-title {
+      font-weight: 700;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      color: var(--warning-amber);
+    }
+
+    .elig-textarea {
+      background: var(--bg-space);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.5rem;
+      border-radius: 8px;
+      resize: none;
+      font-family: var(--font-sans);
+      font-size: 0.75rem;
+      height: 52px;
+      outline: none;
+    }
+
+    .elig-textarea:focus {
+      border-color: var(--warning-amber);
+    }
+
+    .eligibility-output {
+      display: none;
+      font-size: 0.7rem;
+      padding: 0.5rem;
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 8px;
+      animation: fade-in 0.3s;
+    }
+
+    .eligibility-output.active {
+      display: block;
+    }
+
+    /* 6. Offline Map Screen */
+    .map-screen {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .map-header {
+      padding: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      z-index: 10;
+    }
+
+    .map-title {
+      font-weight: 800;
+      font-size: 0.85rem;
+    }
+
+    .map-sub-indicator {
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: var(--secondary-cyan);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .map-render-area {
+      flex-grow: 1;
+      position: relative;
+      background: #131722;
+    }
+
+    /* Leaflet map object wrapper */
+    #onlineMapObj {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0; left: 0;
+      z-index: 5;
+    }
+
+    /* Offline custom Canvas/SVG map vector simulator */
+    #offlineMapCanvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0; left: 0;
+      z-index: 6;
+      background-color: #0b0f19;
+      display: block;
+    }
+
+    /* Map Overlay Details */
+    .map-pin-detail-bar {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 20;
+      background: rgba(12, 18, 29, 0.95);
+      border: 1px solid var(--border-color);
+      padding: 0.6rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      backdrop-filter: blur(8px);
+      display: none;
+    }
+
+    .map-pin-detail-bar.active {
+      display: block;
+      animation: slide-up 0.25s ease-out;
+    }
+
+    /* Right Panel - Technical Sandbox Console */
+    .tech-panel {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    .sandbox-section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
+
+    .sandbox-section-title svg {
+      width: 20px;
+      height: 20px;
+      fill: var(--secondary-cyan);
+    }
+
+    /* Terminal Console */
+    .terminal-container {
+      background: #03060a;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      box-shadow: 0 10px 25px -10px rgba(0,0,0,0.5);
+    }
+
+    .terminal-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 0.5rem;
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .terminal-dot.red { background: #ef4444; }
+    .terminal-dot.yellow { background: #f59e0b; }
+    .terminal-dot.green { background: #10b981; }
+
+    .terminal-screen {
+      height: 220px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding-right: 5px;
+    }
+
+    .log-line {
+      word-break: break-all;
+    }
+
+    .log-line.system { color: #538dec; }
+    .log-line.success { color: var(--success-green); }
+    .log-line.warning { color: var(--warning-amber); }
+    .log-line.error { color: var(--primary-red); }
+    .log-line.info { color: var(--secondary-cyan); }
+    .log-line.gemma { color: #c084fc; }
+
+    /* Pipeline Visualizer */
+    .pipeline-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .pipeline-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      position: relative;
+    }
+
+    .pipeline-step {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .pipeline-step.active {
+      border-color: var(--secondary-cyan);
+      background: var(--secondary-cyan-glow);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
+    }
+
+    .pipeline-step-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .pipeline-step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      transition: all 0.3s;
+    }
+
+    .pipeline-step.active .pipeline-step-num {
+      background: var(--secondary-cyan);
+      color: black;
+      border-color: var(--secondary-cyan);
+    }
+
+    .pipeline-step-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pipeline-step-title {
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .pipeline-step-desc {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .pipeline-step-status {
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      font-weight: bold;
+      color: var(--text-secondary);
+    }
+
+    .pipeline-step.active .pipeline-step-status {
+      color: var(--secondary-cyan);
+    }
+
+    .pipeline-connector {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      margin: -0.25rem 0;
+      opacity: 0.5;
+    }
+
+    /* Telemetry Info Cards */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .telemetry-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .telemetry-label {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .telemetry-value {
+      font-size: 1.15rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--secondary-cyan);
+    }
+
+    .telemetry-value.amber {
+      color: var(--warning-amber);
+    }
+
+    .telemetry-value.green {
+      color: var(--success-green);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand-section">
+      <div class="brand-logo" id="mainSosLogoBtn">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        SAHAYAK AI
+      </div>
+      <div class="brand-title-wrap">
+        <h1>Emergency Assistant</h1>
+        <span>Gemma 4 Edge Sandbox v1.0.4</span>
+      </div>
+    </div>
+
+    <div class="quick-specs">
+      <div class="spec-item">
+        <span class="indicator"></span>
+        SQLite: <b style="color: white; margin-left:2px;">CACHED</b>
+      </div>
+      <div class="spec-item">
+        <span class="indicator"></span>
+        Vector Index: <b style="color: white; margin-left:2px;">14,280 Chunks</b>
+      </div>
+      <div class="spec-item">
+        <span class="indicator pulse"></span>
+        Local model: <b style="color: var(--secondary-cyan); margin-left:2px;">Gemma 4 (8B)</b>
+      </div>
+    </div>
+  </header>
+
+  <!-- Dashboard Container -->
+  <div class="dashboard-container">
+    
+    <!-- LEFT PANEL: Smartphone Simulator -->
+    <div class="simulator-panel">
+      <div class="phone-bezel">
+        <!-- Camera Notch -->
+        <div class="phone-camera">
+          <div class="phone-camera-lens"></div>
+        </div>
+
+        <!-- Phone Status Bar -->
+        <div class="phone-status-bar">
+          <div class="status-left">
+            <span id="phoneTime">17:54</span>
+          </div>
+          <div class="status-right">
+            <!-- Simulated Battery and Network -->
+            <span id="statusBarSignal">📶 Offline (Mesh Only)</span>
+            <span>🔋 96%</span>
+          </div>
+        </div>
+
+        <!-- Phone Screen -->
+        <div class="phone-screen" id="phoneScreen">
+          
+          <!-- SCREEN 1: ONBOARDING FLOW -->
+          <div class="phone-view onboarding-screen active" id="view-onboarding">
+            <div class="onboard-header">
+              <h2>Sahayak AI 🆘</h2>
+              <p>Offline Multilingual Emergency Assistant powered by Gemma 4</p>
+            </div>
+
+            <div class="onboard-content">
+              <!-- Onboarding Slide 1: Language selection -->
+              <div class="onboard-slide active" id="onboard-slide-1">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-bottom: 0.5rem;">Select Primary Language</p>
+                <div class="lang-grid">
+                  <div class="lang-card selected" onclick="setOnboardLanguage('en', 'English')">
+                    <span class="native">English</span>
+                    <span class="name">English</span>
+                  </div>
+                  <div class="lang-card" onclick="setOnboardLanguage('hi', 'Hindi')">
+                    <span class="native">हिन्दी</span>
+                    <span class="name">Hindi</span>
+                  </div>
+                  <div class="lang-card" onclick="setOnboardLanguage('bn', 'Bengali')">
+                    <span class="native">বাংলা</span>
+                    <span class="name">Bengali</span>
+                  </div>
+                  <div class="lang-card" onclick="setOnboardLanguage('ta', 'Tamil')">
+                    <span class="native">தமிழ்</span>
+                    <span class="name">Tamil</span>
+                  </div>
+                  <div class="lang-card" onclick="setOnboardLanguage('te', 'Telugu')">
+                    <span class="native">తెలుగు</span>
+                    <span class="name">Telugu</span>
+                  </div>
+                  <div class="lang-card" onclick="setOnboardLanguage('gu', 'Gujarati')">
+                    <span class="native">ગુજરાતી</span>
+                    <span class="name">Gujarati</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Onboarding Slide 2: Region selector -->
+              <div class="onboard-slide" id="onboard-slide-2">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; margin-bottom: 0.5rem;">Configure Emergency Region</p>
+                <div class="form-group">
+                  <label for="stateSelect">Select State</label>
+                  <select class="form-select" id="stateSelect" onchange="populateDistricts()">
+                    <option value="">-- Select State --</option>
+                    <option value="bihar">Bihar</option>
+                    <option value="assam">Assam</option>
+                    <option value="odisha">Odisha</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-top: 0.5rem;">
+                  <label for="districtSelect">Select District</label>
+                  <select class="form-select" id="districtSelect">
+                    <option value="">-- Select State First --</option>
+                  </select>
+                </div>
+                <p style="font-size: 0.65rem; color: var(--warning-amber); line-height: 1.4; margin-top: 0.5rem;">
+                  ⚠️ Customizing region loads localized schemes, hospital coordinates, and evacuation maps into the local SQLite memory index.
+                </p>
+              </div>
+
+              <!-- Onboarding Slide 3: Knowledge Base Synchronization -->
+              <div class="onboard-slide" id="onboard-slide-3">
+                <div class="sync-container">
+                  <div class="sync-loader" id="syncLoader"></div>
+                  <h3 id="syncTitle">Initializing Sync...</h3>
+                  <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="syncProgressBar"></div>
+                  </div>
+                  <div class="sync-status-msg" id="syncStatus">Allocating local partition...</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="onboard-actions">
+              <button class="btn-action secondary" id="btnOnboardPrev" onclick="onboardPrev()" style="display: none;">Back</button>
+              <button class="btn-action" id="btnOnboardNext" onclick="onboardNext()">Next Screen</button>
+            </div>
+          </div>
+
+          <!-- SCREEN 2: MAIN HOME SCREEN -->
+          <div class="phone-view home-screen" id="view-home">
+            <div class="home-top-bar">
+              <div class="mode-toggle-wrap">
+                <span class="mode-label" id="modeLabel">🟢 Online</span>
+                <label class="switch">
+                  <input type="checkbox" id="networkToggle" checked onchange="toggleNetworkMode(this)">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <select class="lang-badge-selector" id="langSelector" onchange="changeLanguage(this.value)">
+                <option value="en">EN</option>
+                <option value="hi">हिं</option>
+                <option value="bn">বাং</option>
+                <option value="ta">தமி</option>
+              </select>
+            </div>
+
+            <!-- Red SOS Circle Trigger -->
+            <div class="sos-area">
+              <div class="sos-pulse-ring-outer" onclick="triggerEmergencyMode()">
+                <div class="pulse-ring"></div>
+                <div class="pulse-ring delayed"></div>
+                <div class="sos-btn-main">
+                  <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                  <span class="label">SOS</span>
+                  <span class="sub-label">Hold or Tap</span>
+                </div>
+              </div>
+              <p class="sos-instruction" id="sosInstructionText">Press and hold to alert nearby rescue teams & broadcast offline location beacon.</p>
+            </div>
+
+            <!-- Quick Access Menu Grid -->
+            <div class="quick-grid">
+              <div class="quick-card" onclick="goToPhoneView('view-map')">
+                <div class="quick-card-icon">
+                  <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+                </div>
+                <div class="quick-card-title">Offline Map</div>
+                <div class="quick-card-desc">Evac centers, hospitals</div>
+              </div>
+              <div class="quick-card" onclick="goToPhoneView('view-schemes')">
+                <div class="quick-card-icon">
+                  <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+                </div>
+                <div class="quick-card-title">Relief Schemes</div>
+                <div class="quick-card-desc">Govt compensations</div>
+              </div>
+              <div class="quick-card" onclick="goToPhoneView('view-voice')">
+                <div class="quick-card-icon">
+                  <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+                </div>
+                <div class="quick-card-title">Voice Chat</div>
+                <div class="quick-card-desc">Gemma 4 Multilingual</div>
+              </div>
+              <div class="quick-card" onclick="triggerFirstAidSchemeQuick()">
+                <div class="quick-card-icon">
+                  <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                </div>
+                <div class="quick-card-title">First Aid</div>
+                <div class="quick-card-desc">CPR, Bleeding tutorials</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SCREEN 3: HIGH CONTRAST EMERGENCY SCREEN -->
+          <div class="emergency-screen" id="view-emergency">
+            <div class="emerg-header">
+              <div class="emerg-title">
+                <span style="color: var(--primary-red); font-size: 1.5rem;">⚠️</span> EMERGENCY
+              </div>
+              <button class="btn-emerg-close" onclick="exitEmergencyMode()">CLOSE</button>
+            </div>
+
+            <div class="emerg-body">
+              <p style="font-size: 0.9rem; font-weight: 800; color: #ff8888; margin-bottom: 0.25rem;">CRITICAL FIRST-AID ACTIONS</p>
+              
+              <!-- Direct Action Step Cards -->
+              <div class="step-card" onclick="triggerEmergVoiceSynthesis('Apply firm, direct pressure on the bleeding wound using a clean cloth. Elevate the limb above the heart if possible to reduce blood flow.')">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  <div class="step-title">STOP SEVERE BLEEDING</div>
+                  <div class="step-desc">Apply firm pressure with cloth. Elevate injured limb above heart levels.</div>
+                </div>
+              </div>
+
+              <div class="step-card" onclick="triggerEmergVoiceSynthesis('Start CPR. Place hands in the center of the chest and push hard and fast at a rate of 100 to 120 compressions per minute. Allow the chest to rise completely.')">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  <div class="step-title">PERFORM CPR INSTRUCTIONS</div>
+                  <div class="step-desc">Push hard and fast in center of chest. 100-120 compressions per minute.</div>
+                </div>
+              </div>
+
+              <div class="step-card" onclick="triggerEmergVoiceSynthesis('For head or neck injury, do not move the person. Keep them perfectly still to prevent spinal cord damage.')">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <div class="step-title">HEAD & NECK INJURY PROTOCOL</div>
+                  <div class="step-desc">Do NOT move the person unless in immediate danger. Stabilize spine.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Beacon mesh card -->
+            <div class="mesh-share-panel" onclick="simulateMeshBroadcast()">
+              <div class="beacon-wave">
+                <div class="wave-circle"></div>
+                <div class="wave-ring"></div>
+              </div>
+              <div class="mesh-status-text" id="meshStatusDisplay">SOS MESH BROADCAST ACTIVE</div>
+              <div class="mesh-sub" id="meshCoords">Lat: 25.6026, Lng: 85.1199 | LoRa Beacon</div>
+            </div>
+          </div>
+
+          <!-- SCREEN 4: VOICE CHAT ASSISTANT -->
+          <div class="phone-view voice-screen" id="view-voice">
+            <div class="voice-header">
+              <div class="voice-title">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+                Voice Assistant
+              </div>
+              <button class="voice-eyes-free-toggle" id="eyesFreeToggle" onclick="toggleEyesFree()">Eyes-Free</button>
+            </div>
+
+            <div class="voice-middle">
+              <!-- Soundwave Canvas -->
+              <div class="wave-canvas-wrap">
+                <canvas id="waveCanvas"></canvas>
+              </div>
+
+              <!-- Real-time dynamic transcripts -->
+              <div class="voice-transcript-area" id="voiceTranscript">
+                <div class="transcript-bubble ai">
+                  Hello, I am Sahayak emergency agent. Ask me anything about first aid, shelter, or eligibility (Hindi / English / Bengali).
+                </div>
+              </div>
+
+              <!-- Eyes Free mode visual mask -->
+              <div class="eyes-free-overlay" id="eyesFreeOverlay" onclick="handleEyesFreeTap()">
+                <div class="eyes-free-wave">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="var(--primary-red)"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+                </div>
+                <div class="eyes-free-text" id="eyesFreeTextDisplay">EYES-FREE LISTENING ACTIVE</div>
+                <p style="font-size: 0.8rem; opacity:0.7;">Tap anywhere to speak your emergency request</p>
+              </div>
+            </div>
+
+            <div class="voice-footer">
+              <div class="mic-button-wrap">
+                <button class="mic-btn-main" id="micBtn" onclick="toggleVoiceCapture()">
+                  <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+                </button>
+              </div>
+              <div class="mic-instruction" id="micSubInstruction">Tap microphone button or speak directly. We automatically translate and classify with offline local modules.</div>
+            </div>
+          </div>
+
+          <!-- SCREEN 5: SCHEME NAVIGATOR -->
+          <div class="phone-view schemes-screen" id="view-schemes">
+            <div class="schemes-header">
+              <div class="schemes-title">Indian Emergency Schemes</div>
+              <div class="schemes-sub" id="schemesSubRegion">Localized context: Bihar (Patna District)</div>
+            </div>
+
+            <!-- Schemes Cards Grid -->
+            <div class="schemes-grid" id="schemesCardGrid">
+              <!-- Populated dynamically -->
+            </div>
+
+            <!-- eligibility checker input -->
+            <div class="eligibility-checker-box">
+              <div class="eligibility-checker-title">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+                AI Eligibility Assessor (Gemma 4 Offline)
+              </div>
+              <textarea class="elig-textarea" id="eligibilityInput" placeholder="Describe your damage (e.g. 'I am an agricultural worker from Assam, floods damaged 2 acres of my crop')"></textarea>
+              <button class="btn-action" style="padding: 0.4rem; font-size: 0.75rem; border-radius: 8px; font-weight:700;" onclick="checkSchemeEligibility()">Analyze Eligibility</button>
+              
+              <!-- eligibility analysis response -->
+              <div class="eligibility-output" id="eligibilityOutput">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+          </div>
+
+          <!-- SCREEN 6: OFFLINE MAP -->
+          <div class="phone-view map-screen" id="view-map">
+            <div class="map-header">
+              <div class="map-title" id="mapTitleText">Emergency Map View</div>
+              <div class="map-sub-indicator" id="mapNetworkStateBadge">OSM Offline Grid</div>
+            </div>
+
+            <div class="map-render-area">
+              <!-- Leaflet Map Container -->
+              <div id="onlineMapObj"></div>
+              
+              <!-- Offline Canvas Map Simulator -->
+              <canvas id="offlineMapCanvas"></canvas>
+
+              <!-- Dynamic Pin Click Information -->
+              <div class="map-pin-detail-bar" id="mapPinDetailBar">
+                <div style="font-weight: 800; color: var(--secondary-cyan); margin-bottom: 0.15rem;" id="pinDetailName">Shelter #1 - High Ground School</div>
+                <div style="color: var(--text-main); font-size: 0.7rem; line-height: 1.3;" id="pinDetailStats">Capacity: 120/150 beds remaining. Water point: Active. Medical Tent: Standard doctor coverage.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phone Bottom Navigation Bar -->
+          <div class="phone-nav-bar" id="phoneNavBar">
+            <button class="nav-btn active" onclick="goToPhoneView('view-home')">
+              <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+              Home
+            </button>
+            <button class="nav-btn" onclick="goToPhoneView('view-map')">
+              <svg viewBox="0 0 24 24"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/></svg>
+              Map
+            </button>
+            <button class="nav-btn active sos-nav" onclick="triggerEmergencyMode()">
+              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+              SOS
+            </button>
+            <button class="nav-btn" onclick="goToPhoneView('view-schemes')">
+              <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>
+              Schemes
+            </button>
+            <button class="nav-btn" onclick="goToPhoneView('view-voice')">
+              <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+              Voice
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Technical Sandbox Developer Console -->
+    <div class="tech-panel">
+      <div class="sandbox-section-title">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-9 14H4v-4h7v4zm0-5H4V9h7v4zm9 5h-7v-4h7v4zm0-5h-7V9h7v4z"/></svg>
+        Local Server Telemetry Sandbox
+      </div>
+
+      <!-- Telemetry Widgets -->
+      <div class="telemetry-grid">
+        <div class="telemetry-card">
+          <span class="telemetry-label">Classify Speed</span>
+          <span class="telemetry-value" id="tSpeedClassify">140 ms</span>
+        </div>
+        <div class="telemetry-card">
+          <span class="telemetry-label">Retrieve RAG Time</span>
+          <span class="telemetry-value amber" id="tSpeedRetrieve">240 ms</span>
+        </div>
+        <div class="telemetry-card">
+          <span class="telemetry-label">Gemma 4 Generation</span>
+          <span class="telemetry-value green" id="tSpeedGenerate">48 tok/s</span>
+        </div>
+        <div class="telemetry-card">
+          <span class="telemetry-label">Local RAM Usage</span>
+          <span class="telemetry-value" id="tRamUsage">5.8 GB</span>
+        </div>
+      </div>
+
+      <!-- 3-Step Agent Pipeline -->
+      <div class="pipeline-container">
+        <div style="font-weight: bold; font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.25rem;">AI AGENT PIPELINE (3-STEP)</div>
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem;">Step-by-step trace of Gemma 4 edge classification, ChromaDB retrieval, and generation logic:</div>
+        
+        <div class="pipeline-grid">
+          <!-- Step 1 -->
+          <div class="pipeline-step" id="pStep1">
+            <div class="pipeline-step-meta">
+              <div class="pipeline-step-num">1</div>
+              <div class="pipeline-step-info">
+                <span class="pipeline-step-title">CLASSIFY PIPELINE</span>
+                <span class="pipeline-step-desc" id="pStepDesc1">Identifies disaster type & severity</span>
+              </div>
+            </div>
+            <div class="pipeline-step-status" id="pStepStatus1">STANDBY</div>
+          </div>
+
+          <div class="pipeline-connector">↓</div>
+
+          <!-- Step 2 -->
+          <div class="pipeline-step" id="pStep2">
+            <div class="pipeline-step-meta">
+              <div class="pipeline-step-num">2</div>
+              <div class="pipeline-step-info">
+                <span class="pipeline-step-title">RETRIEVE RAG</span>
+                <span class="pipeline-step-desc" id="pStepDesc2">ChromaDB semantic local vector search</span>
+              </div>
+            </div>
+            <div class="pipeline-step-status" id="pStepStatus2">STANDBY</div>
+          </div>
+
+          <div class="pipeline-connector">↓</div>
+
+          <!-- Step 3 -->
+          <div class="pipeline-step" id="pStep3">
+            <div class="pipeline-step-meta">
+              <div class="pipeline-step-num">3</div>
+              <div class="pipeline-step-info">
+                <span class="pipeline-step-title">GENERATE INFERENCE</span>
+                <span class="pipeline-step-desc" id="pStepDesc3">Gemma 4 local struct response</span>
+              </div>
+            </div>
+            <div class="pipeline-step-status" id="pStepStatus3">STANDBY</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Terminal Console -->
+      <div class="terminal-container">
+        <div class="terminal-top">
+          <div class="terminal-dots">
+            <div class="terminal-dot red"></div>
+            <div class="terminal-dot yellow"></div>
+            <div class="terminal-dot green"></div>
+          </div>
+          <span>server-backend-logs.sh</span>
+          <span>localhost:8000</span>
+        </div>
+        <div class="terminal-screen" id="terminalScreen">
+          <div class="log-line system">[SYSTEM] Starting local FastAPI server...</div>
+          <div class="log-line system">[SYSTEM] Importing Whisper offline voice modules...</div>
+          <div class="log-line system">[SYSTEM] Initializing SQLite schema indices...</div>
+          <div class="log-line success">[SQLITE] Database partition verified. Dynamic maps & government guides loaded.</div>
+          <div class="log-line info">[OLLAMA] Pre-loading local model: gemma4:8b-instruct-q4_K_M (size: 4.8GB)</div>
+          <div class="log-line success">[OLLAMA] Gemma 4 model loaded successfully into RAM. Status: ONLINE.</div>
+          <div class="log-line system">[SYSTEM] Server active and listening on port 8000. Access token generated.</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Leaflet Javascript for Online Map -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <script>
+    // State Variables
+    let currentView = 'view-onboarding';
+    let onboardStep = 1;
+    let selectedLanguage = 'en';
+    let selectedState = '';
+    let selectedDistrict = '';
+    let isOnlineMode = true;
+    let mapInitialized = false;
+    let leafletMap = null;
+    let waveformAnimationId = null;
+    let isRecordingVoice = false;
+    let isEyesFreeMode = false;
+    let localServerActive = false;
+    
+    // Core database schemas cached locally
+    const districtsData = {
+      bihar: ['Patna', 'Muzaffarpur', 'Gaya', 'Bhagalpur'],
+      assam: ['Dibrugarh', 'Guwahati', 'Silchar', 'Jorhat'],
+      odisha: ['Cuttack', 'Bhubaneswar', 'Puri', 'Balasore']
+    };
+
+    const schemeData = {
+      bihar: [
+        {
+          name: "NDRF Immediate Emergency Fund",
+          badge: "Flood Relief",
+          desc: "Direct immediate cash transfer of ₹4,000 for families impacted by flooding to cover clothes, dry ration, and utensils.",
+          eligibility: "Must reside in notified flood-impacted floodplains of Patna/Ganga zone. Evaluated dynamically via local revenue sheets."
+        },
+        {
+          name: "PM Aawas Yojana (Disaster Reconstruction)",
+          badge: "Housing",
+          desc: "Full reconstruction support grant up to ₹1,20,000 for residential shelters completely or heavily destroyed in declared disasters.",
+          eligibility: "Low-income rural residents whose dwellings were structurally compromised by natural disaster events."
+        },
+        {
+          name: "Bihar Crop Loss Compensation",
+          badge: "Agriculture",
+          desc: "Crop input subsidy of ₹6,800 per hectare for rainfed crop loss and up to ₹18,000 per hectare for perennial crop damage.",
+          eligibility: "Farmers with verified agricultural landholdings experiencing greater than 33% total yield loss."
+        }
+      ],
+      assam: [
+        {
+          name: "Assam SDRF Flood Relief Grant",
+          badge: "Immediate Aid",
+          desc: "Immediate relief package of ₹3,800 per household for groceries, clothing, and primary survival materials.",
+          eligibility: "Registered inhabitants in active flood-affected sectors along the Brahmaputra valley zone."
+        },
+        {
+          name: "Assam Agriculture Solar Pump Relief",
+          badge: "Farm Subsidy",
+          desc: "Emergency repair and full-replacement assistance scheme for solar irrigation pumps destroyed by cyclone or river floods.",
+          eligibility: "Marginal farmers owning solar equipment under regional government projects."
+        }
+      ],
+      odisha: [
+        {
+          name: "Odisha Cyclone Mitigation Fund",
+          badge: "Infrastructure",
+          desc: "Support of ₹12,000 for constructing safe storm cellars or repairing local household structural roofs in saline coastal belts.",
+          eligibility: "Residents living inside the 10km high-risk coastal buffer line of Odisha."
+        }
+      ]
+    };
+
+    // Hospital, Evacuation Shelter, and Water Point Coordinate Datasets
+    const mapPins = {
+      patna: [
+        { name: "Patna Central Flood Shelter #1", type: "shelter", lat: 25.6026, lng: 85.1199, desc: "Beds: 120/150 available. Food: Rations active. Generator: Yes." },
+        { name: "Ganga Coast Guard Rescue Point", type: "shelter", lat: 25.6105, lng: 85.1325, desc: "Rescue boats stationed: 12 operational. High ground clearance." },
+        { name: "Patna Emergency Medical Camp", type: "hospital", lat: 25.5945, lng: 85.1050, desc: "Trauma beds: 18. Stocked with anti-venom, emergency IV packs." },
+        { name: "Safe Water Distribution Hub A", type: "water", lat: 25.6050, lng: 85.0990, desc: "Drinking water filtration unit powered by local solar grid. Active." }
+      ],
+      dibrugarh: [
+        { name: "Brahmaputra Evacuation Base #4", type: "shelter", lat: 27.4728, lng: 94.9120, desc: "Capacity: 340/400. Direct dry food drops operational here." },
+        { name: "Dibrugarh Civil Disaster Ward", type: "hospital", lat: 27.4810, lng: 94.9010, desc: "Emergency medical division active 24/7. Oxygen supply: Stable." },
+        { name: "Brahmaputra Water Purification Point", type: "water", lat: 27.4650, lng: 94.9250, desc: "Heavy sediment filters installed. Capacity: 5000 Litres/day." }
+      ],
+      cuttack: [
+        { name: "Mahanadi Storm shelter #12", type: "shelter", lat: 20.4625, lng: 85.8830, desc: "Capacity: 500 beds. Built for Category 4 cyclonic wind loads." },
+        { name: "Cuttack General Trauma Base", type: "hospital", lat: 20.4505, lng: 85.8690, desc: "Disaster triage team deployed. 40 trauma specialists available." }
+      ]
+    };
+
+    // On Load Initialization
+    window.addEventListener('load', () => {
+      updateTimeDisplay();
+      setInterval(updateTimeDisplay, 60000);
+      setupSoundwaveCanvas();
+      
+      // Auto-trigger logs in terminal
+      appendTerminalLog("system", "[INFO] Application loaded on client browser environment.");
+      
+      // Check for local FastAPI server
+      appendTerminalLog("system", "[SYSTEM] Checking for local Python FastAPI backend at http://localhost:8000...");
+      fetch('http://localhost:8000/', { method: 'GET' })
+        .then(res => res.json())
+        .then(data => {
+          localServerActive = true;
+          appendTerminalLog("success", `[SYSTEM] FastAPI server found! Status: ${data.status} | Vector items: ${data.vector_chunks}`);
+          appendTerminalLog("info", `[SYSTEM] ChromaDB connectivity: ${data.chroma_db} | Ollama LLM endpoint: ${data.ollama_connection}`);
+          // Update spec badges
+          document.getElementById('statusBarSignal').innerText = "📶 Online Server (port:8000)";
+        })
+        .catch(err => {
+          appendTerminalLog("warning", "[SYSTEM] FastAPI server offline/unreachable. Running in local browser simulator sandbox.");
+        });
+
+      // Initialize map canvas
+      renderOfflineCanvasMap();
+    });
+
+    // Clock display
+    function updateTimeDisplay() {
+      const now = new Date();
+      let hrs = now.getHours().toString().padStart(2, '0');
+      let mins = now.getMinutes().toString().padStart(2, '0');
+      document.getElementById('phoneTime').innerText = `${hrs}:${mins}`;
+    }
+
+    // Append to live server logs
+    function appendTerminalLog(type, text) {
+      const screen = document.getElementById('terminalScreen');
+      const time = new Date().toLocaleTimeString();
+      let cssClass = 'system';
+      if (type === 'success') cssClass = 'success';
+      if (type === 'warning') cssClass = 'warning';
+      if (type === 'error') cssClass = 'error';
+      if (type === 'info') cssClass = 'info';
+      if (type === 'gemma') cssClass = 'gemma';
+      
+      screen.innerHTML += `<div class="log-line ${cssClass}">[${time}] ${text}</div>`;
+      screen.scrollTop = screen.scrollHeight;
+    }
+
+    // ONBOARDING PROCESS CONTROLLERS
+    function setOnboardLanguage(lang, name) {
+      selectedLanguage = lang;
+      document.getElementById('langSelector').value = lang;
+      
+      // Select visual style
+      const cards = document.querySelectorAll('.lang-card');
+      cards.forEach(card => card.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+      
+      appendTerminalLog("success", `[Whisper/Indic] Primary locale selected: ${name.toUpperCase()} (${lang})`);
+    }
+
+    function populateDistricts() {
+      const state = document.getElementById('stateSelect').value;
+      const districtDropdown = document.getElementById('districtSelect');
+      districtDropdown.innerHTML = '';
+      
+      if (!state) {
+        districtDropdown.innerHTML = '<option value="">-- Select State First --</option>';
+        return;
+      }
+      
+      districtsData[state].forEach(dist => {
+        districtDropdown.innerHTML += `<option value="${dist.toLowerCase()}">${dist}</option>`;
+      });
+      
+      selectedState = state;
+      appendTerminalLog("info", `[SQLITE] Loading region metadata for state: ${state.toUpperCase()}`);
+    }
+
+    function onboardPrev() {
+      if (onboardStep > 1) {
+        document.getElementById(`onboard-slide-${onboardStep}`).classList.remove('active');
+        onboardStep--;
+        document.getElementById(`onboard-slide-${onboardStep}`).classList.add('active');
+      }
+      
+      if (onboardStep === 1) {
+        document.getElementById('btnOnboardPrev').style.display = 'none';
+      }
+      document.getElementById('btnOnboardNext').innerText = "Next Screen";
+    }
+
+    function onboardNext() {
+      if (onboardStep === 1) {
+        // Validation
+        document.getElementById('btnOnboardPrev').style.display = 'block';
+        document.getElementById(`onboard-slide-${onboardStep}`).classList.remove('active');
+        onboardStep++;
+        document.getElementById(`onboard-slide-${onboardStep}`).classList.add('active');
+      } 
+      else if (onboardStep === 2) {
+        // District validation
+        const stateSelectVal = document.getElementById('stateSelect').value;
+        const districtSelectVal = document.getElementById('districtSelect').value;
+        if (!stateSelectVal || !districtSelectVal) {
+          alert('Please select both state and district to sync correct offline package.');
+          return;
+        }
+        selectedState = stateSelectVal;
+        selectedDistrict = districtSelectVal;
+        
+        document.getElementById(`onboard-slide-${onboardStep}`).classList.remove('active');
+        onboardStep++;
+        document.getElementById(`onboard-slide-${onboardStep}`).classList.add('active');
+        
+        // Hide standard actions, proceed to async sync
+        document.getElementById('btnOnboardPrev').style.display = 'none';
+        document.getElementById('btnOnboardNext').style.display = 'none';
+        
+        executeKnowledgeSync();
+      }
+    }
+
+    // Simulated Sync
+    function executeKnowledgeSync() {
+      appendTerminalLog("warning", "[SQLITE] Starting knowledge index synchronization for " + selectedDistrict.toUpperCase() + ", " + selectedState.toUpperCase());
+      const progress = document.getElementById('syncProgressBar');
+      const status = document.getElementById('syncStatus');
+      const title = document.getElementById('syncTitle');
+      
+      title.innerText = "Syncing Datasets...";
+      
+      // If local server is active, trigger actual ChromaDB indexing in the background
+      if (localServerActive) {
+        appendTerminalLog("info", "[FASTAPI] POST /sync -> Requesting local document vector build pipeline...");
+        fetch('http://localhost:8000/sync', { method: 'POST' })
+          .then(res => res.json())
+          .then(data => {
+            appendTerminalLog("success", "[FASTAPI] Backend synchronization: " + data.msg);
+          })
+          .catch(err => {
+            appendTerminalLog("error", "[FASTAPI] Backend synchronization failed: " + err.message);
+          });
+      }
+      
+      const steps = [
+        { percentage: 20, msg: "Connecting to local FastAPI cache manager...", log: "[FASTAPI] Cache initialization handshake active." },
+        { percentage: 40, msg: "Downloading NDMA disaster response manuals (PDF to Text Chunks)...", log: "[ChromaDB] Indexing 4,890 text nodes. Vector dimensionality: 768" },
+        { percentage: 65, msg: "Caching Pradhan Mantri schemes & eligibility schemas...", log: "[SQLITE] Inserting regional scheme parameters into main database partition." },
+        { percentage: 85, msg: "Fetching OpenStreetMap local tiles grid & medical pins...", log: "[SQLITE] Pre-compiled OSM vector map matrices mapped to local indexes." },
+        { percentage: 100, msg: "Sync Complete. System ready offline.", log: "[SYSTEM] Local SQLite sync complete. Gemma 4 edge system ONLINE & cached." }
+      ];
+      
+      let curStepIdx = 0;
+      const interval = setInterval(() => {
+        if (curStepIdx < steps.length) {
+          const step = steps[curStepIdx];
+          progress.style.width = step.percentage + '%';
+          status.innerText = step.msg;
+          appendTerminalLog("success", step.log);
+          curStepIdx++;
+        } else {
+          clearInterval(interval);
+          title.innerText = "Offline Cache Configured!";
+          status.innerHTML = `<span style="color:var(--success-green);">✅ Ready for full offline operations!</span>`;
+          
+          setTimeout(() => {
+            // Move to main dashboard
+            document.getElementById('view-onboarding').classList.remove('active');
+            document.getElementById('view-home').classList.add('active');
+            currentView = 'view-home';
+            
+            // Populate schemes list based on region
+            populateSchemesView();
+            // Trigger local map centering
+            initializeMapEngine();
+          }, 1500);
+        }
+      }, 900);
+    }
+
+    // PHONE VIEW STATE ROUTER
+    function goToPhoneView(viewId) {
+      if (viewId === 'view-emergency') {
+        triggerEmergencyMode();
+        return;
+      }
+      
+      const views = document.querySelectorAll('.phone-view');
+      views.forEach(v => v.classList.remove('active'));
+      
+      document.getElementById(viewId).classList.add('active');
+      currentView = viewId;
+      
+      // Update Navigation Buttons Active State
+      const navButtons = document.querySelectorAll('.nav-btn');
+      navButtons.forEach(btn => {
+        btn.classList.remove('active');
+        const clickFnStr = btn.getAttribute('onclick');
+        if (clickFnStr && clickFnStr.includes(viewId)) {
+          btn.classList.add('active');
+        }
+      });
+
+      appendTerminalLog("info", `[FASTAPI] Navigation route changed to: /${viewId.replace('view-', '')}`);
+
+      if (viewId === 'view-map') {
+        setTimeout(initializeMapEngine, 200);
+      }
+      
+      // Cancel speech if changing view
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    // DUAL NETWORK CONTROLLER
+    function toggleNetworkMode(toggle) {
+      isOnlineMode = toggle.checked;
+      const label = document.getElementById('modeLabel');
+      const mapNetworkBadge = document.getElementById('mapNetworkStateBadge');
+      const statusBarSignal = document.getElementById('statusBarSignal');
+      
+      if (isOnlineMode) {
+        label.innerText = "🟢 Online";
+        label.classList.remove('offline');
+        statusBarSignal.innerText = "📶 Local Net / LTE";
+        if (mapNetworkBadge) mapNetworkBadge.innerText = "OSM Active Server";
+        
+        appendTerminalLog("success", "[FASTAPI] Gateway network connection restored. Cloud endpoints active.");
+        
+        // Update telemetry widgets
+        document.getElementById('tSpeedClassify').innerText = "85 ms";
+        document.getElementById('tSpeedRetrieve').innerText = "120 ms";
+        document.getElementById('tSpeedRetrieve').classList.remove('amber');
+        document.getElementById('tSpeedRetrieve').classList.add('green');
+      } else {
+        label.innerText = "🔴 Offline";
+        label.classList.add('offline');
+        statusBarSignal.innerText = "📶 Offline (Mesh Only)";
+        if (mapNetworkBadge) mapNetworkBadge.innerText = "OSM Offline Grid";
+        
+        appendTerminalLog("warning", "[FASTAPI] Network connection severed. Activating local SQLite & local Gemma 4 RAG mode.");
+        
+        // Update telemetry widgets to represent local CPU/RAM performance
+        document.getElementById('tSpeedClassify').innerText = "180 ms";
+        document.getElementById('tSpeedRetrieve').innerText = "310 ms";
+        document.getElementById('tSpeedRetrieve').classList.remove('green');
+        document.getElementById('tSpeedRetrieve').classList.add('amber');
+      }
+      
+      // Re-trigger map update
+      initializeMapEngine();
+    }
+
+    function changeLanguage(lang) {
+      selectedLanguage = lang;
+      appendTerminalLog("info", `[Whisper/IndicTrans] Active transcription translation language set to: ${lang.toUpperCase()}`);
+    }
+
+    // 1. EMERGENCY MODE TRIGGER
+    function triggerEmergencyMode() {
+      // Pause home screen, show full emergency UI
+      document.getElementById('view-home').classList.remove('active');
+      document.getElementById('view-voice').classList.remove('active');
+      document.getElementById('view-schemes').classList.remove('active');
+      document.getElementById('view-map').classList.remove('active');
+      
+      const emergScreen = document.getElementById('view-emergency');
+      emergScreen.style.display = 'flex';
+      currentView = 'view-emergency';
+      
+      appendTerminalLog("error", "[EMERGENCY] SOS Red button trigger detected! High-contrast emergency screen deployed.");
+      appendTerminalLog("warning", "[GPS] Polling local coords cache: lat=25.6026, lng=85.1199. Precision: ±5m");
+      
+      // Trigger voice warn
+      triggerEmergVoiceSynthesis("Emergency mode active. Do not panic. Tap any step card for loud audio guidance instructions.");
+    }
+
+    function exitEmergencyMode() {
+      const emergScreen = document.getElementById('view-emergency');
+      emergScreen.style.display = 'none';
+      
+      // Return to home
+      document.getElementById('view-home').classList.add('active');
+      currentView = 'view-home';
+      
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      appendTerminalLog("info", "[SYSTEM] De-activating SOS High-contrast overlay.");
+    }
+
+    function triggerEmergVoiceSynthesis(text) {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95; // Slower for clear emergency instructions
+      utterance.pitch = 1.0;
+      
+      // Pick best English or Hindi voice depending on context
+      const voices = window.speechSynthesis.getVoices();
+      const narrativeVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('David')));
+      if (narrativeVoice) {
+        utterance.voice = narrativeVoice;
+      }
+      
+      window.speechSynthesis.speak(utterance);
+      appendTerminalLog("gemma", `[TTS] Voicing emergency directions aloud: "${text.substring(0, 50)}..."`);
+    }
+
+    function simulateMeshBroadcast() {
+      const statusDisp = document.getElementById('meshStatusDisplay');
+      statusDisp.innerText = "BEACON BROADCAST TRANSMITTING...";
+      
+      appendTerminalLog("warning", "[LORA] Launching Bluetooth LE & LoRa peer mesh packet beacons.");
+      appendTerminalLog("warning", "[LORA] Payload: UUID=SahayakSOSNode, Coords=25.6026N/85.1199E, Battery=96%, Severity=CRITICAL");
+      
+      setTimeout(() => {
+        statusDisp.innerText = "SOS MESH BROADCAST SENT (24 peers)";
+        appendTerminalLog("success", "[LORA] Mesh handshake verified with 24 local nodes inside 1.2km radius.");
+      }, 1500);
+    }
+
+    // 2. VOICE CHAT ASSISTANT
+    function setupSoundwaveCanvas() {
+      const canvas = document.getElementById('waveCanvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set display sizing
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = 100;
+      
+      let waveOffset = 0;
+      
+      function drawWave() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.beginPath();
+        ctx.strokeStyle = isRecordingVoice ? 'rgba(244, 63, 94, 0.8)' : 'rgba(6, 182, 212, 0.7)';
+        ctx.lineWidth = 3;
+        
+        const centerHeight = canvas.height / 2;
+        const amplitude = isRecordingVoice ? 32 : 12;
+        const frequency = isRecordingVoice ? 0.08 : 0.04;
+        
+        for (let x = 0; x < canvas.width; x++) {
+          const y = centerHeight + Math.sin(x * frequency + waveOffset) * amplitude * Math.sin(x * 0.005);
+          if (x === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+        
+        // draw secondary helper wave
+        ctx.beginPath();
+        ctx.strokeStyle = isRecordingVoice ? 'rgba(244, 63, 94, 0.3)' : 'rgba(6, 182, 212, 0.3)';
+        ctx.lineWidth = 1.5;
+        for (let x = 0; x < canvas.width; x++) {
+          const y = centerHeight + Math.cos(x * (frequency*0.8) - waveOffset) * (amplitude*0.6) * Math.sin(x * 0.005);
+          if (x === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+        
+        waveOffset += isRecordingVoice ? 0.25 : 0.06;
+        waveformAnimationId = requestAnimationFrame(drawWave);
+      }
+      
+      drawWave();
+    }
+
+    function toggleVoiceCapture() {
+      const micBtn = document.getElementById('micBtn');
+      const micSub = document.getElementById('micSubInstruction');
+      
+      if (!isRecordingVoice) {
+        // Start simulated/actual recording
+        isRecordingVoice = true;
+        micBtn.classList.add('recording');
+        micSub.innerText = "Listening... Speak your emergency question now.";
+        
+        appendTerminalLog("info", "[WHISPER] Initializing offline Whisper mic recording capture...");
+        
+        // Simulated speech transcription processing
+        simulateSpeechRecognitionInput();
+      } else {
+        stopVoiceCapture();
+      }
+    }
+
+    function stopVoiceCapture() {
+      const micBtn = document.getElementById('micBtn');
+      const micSub = document.getElementById('micSubInstruction');
+      isRecordingVoice = false;
+      micBtn.classList.remove('recording');
+      micSub.innerText = "Tap microphone button or speak directly.";
+    }
+
+    function simulateSpeechRecognitionInput() {
+      // Simulated prompts representing common disaster scenarios
+      const samplePrompts = [
+        { lang: "hi", text: "Mere ghar me pani ghus gaya hai aur light chali gayi hai, kya karu?", english: "Water has entered my house and power is gone, what should I do?" },
+        { lang: "en", text: "My friend has a broken bone and is bleeding heavily from his arm, help!", english: "My friend has a broken bone and is bleeding heavily from his arm, help!" },
+        { lang: "bn", text: "Amar barir kache disaster recovery shelter kothay ache?", english: "Where is the disaster recovery shelter near my house?" }
+      ];
+      
+      // Select random prompt to simulate
+      const selected = samplePrompts[Math.floor(Math.random() * samplePrompts.length)];
+      
+      setTimeout(() => {
+        if (!isRecordingVoice) return; // User stopped it manually
+        
+        stopVoiceCapture();
+        
+        // Append user prompt to transcript
+        const transcript = document.getElementById('voiceTranscript');
+        transcript.innerHTML += `<div class="transcript-bubble user">"${selected.text}"</div>`;
+        transcript.scrollTop = transcript.scrollHeight;
+        
+        appendTerminalLog("info", `[WHISPER] Audio stream processed. Transcript parsed: "${selected.text}"`);
+        
+        // Trigger 3-Step RAG pipeline telemetry updates
+        execute3StepPipelineSimulation(selected.text, selected.english, selected.lang);
+        
+      }, 3500);
+    }
+
+    // 3-STEP AI PIPELINE ENGINE (Binds frontend actions to FastAPI backend)
+    function execute3StepPipelineSimulation(userText, englishTranslation, inputLang) {
+      const pStep1 = document.getElementById('pStep1');
+      const pStep2 = document.getElementById('pStep2');
+      const pStep3 = document.getElementById('pStep3');
+      const pStepStatus1 = document.getElementById('pStepStatus1');
+      const pStepStatus2 = document.getElementById('pStepStatus2');
+      const pStepStatus3 = document.getElementById('pStepStatus3');
+      
+      // Reset pipeline state
+      pStep1.classList.remove('active');
+      pStep2.classList.remove('active');
+      pStep3.classList.remove('active');
+      pStepStatus1.innerText = "STANDBY";
+      pStepStatus2.innerText = "STANDBY";
+      pStepStatus3.innerText = "STANDBY";
+
+      if (localServerActive) {
+        pStep1.classList.add('active');
+        pStepStatus1.innerText = "PROCESSING";
+        appendTerminalLog("info", `[FASTAPI] POST /chat -> Initiating on-device inference for prompt: "${userText}"`);
+        
+        const startTime = Date.now();
+        fetch('http://localhost:8000/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: userText })
+        })
+        .then(res => {
+          if (!res.ok) throw new Error("FastAPI server endpoint error status: " + res.status);
+          return res.json();
+        })
+        .then(data => {
+          const latency = Date.now() - startTime;
+          const cls = data.classification;
+          
+          // Complete Step 1 Classify
+          pStepStatus1.innerText = "COMPLETE";
+          appendTerminalLog("success", `[CLASSIFICATION] Result -> Disaster: ${cls.disaster_type} | Severity: ${cls.severity} | Language: ${cls.lang}`);
+          
+          // Trigger Step 2 Retrieve
+          pStep1.classList.remove('active');
+          pStep2.classList.add('active');
+          pStepStatus2.innerText = "COMPLETE";
+          appendTerminalLog("success", `[ChromaDB] Retrieved ${data.retrieval_chunks.length} manual chunks. Engine: ${data.engine}`);
+          
+          // Trigger Step 3 Generate
+          setTimeout(() => {
+            pStep2.classList.remove('active');
+            pStep3.classList.add('active');
+            pStepStatus3.innerText = "COMPLETE";
+            
+            const tCls = Math.round(latency * 0.15);
+            const tRet = Math.round(latency * 0.25);
+            document.getElementById('tSpeedClassify').innerText = `${tCls} ms`;
+            document.getElementById('tSpeedRetrieve').innerText = `${tRet} ms`;
+            document.getElementById('tSpeedRetrieve').classList.add('green');
+            
+            // Append Response to Transcript
+            const transcript = document.getElementById('voiceTranscript');
+            transcript.innerHTML += `<div class="transcript-bubble ai"><b>Sahayak AI (${cls.disaster_type}):</b> ${data.response}</div>`;
+            transcript.scrollTop = transcript.scrollHeight;
+            
+            pStep3.classList.remove('active');
+            appendTerminalLog("success", `[OLLAMA] Gemma 4 complete via ${data.engine}. Latency: ${latency} ms.`);
+            
+            // Voice aloud AI response
+            triggerVoiceSynthesisAloud(data.response, cls.lang);
+          }, 800);
+        })
+        .catch(err => {
+          pStep1.classList.remove('active');
+          pStepStatus1.innerText = "STANDBY";
+          appendTerminalLog("error", `[FASTAPI] Server RAG request failed: ${err.message}. Falling back to simulation.`);
+          localServerActive = false;
+          execute3StepPipelineSimulationFallback(userText, englishTranslation, inputLang);
+        });
+        
+        return;
+      }
+      
+      execute3StepPipelineSimulationFallback(userText, englishTranslation, inputLang);
+    }
+
+    // Standalone client simulation fallback
+    function execute3StepPipelineSimulationFallback(userText, englishTranslation, inputLang) {
+      const pStep1 = document.getElementById('pStep1');
+      const pStep2 = document.getElementById('pStep2');
+      const pStep3 = document.getElementById('pStep3');
+      const pStepStatus1 = document.getElementById('pStepStatus1');
+      const pStepStatus2 = document.getElementById('pStepStatus2');
+      const pStepStatus3 = document.getElementById('pStepStatus3');
+      
+      // Reset pipeline state
+      pStep1.classList.remove('active');
+      pStep2.classList.remove('active');
+      pStep3.classList.remove('active');
+      pStepStatus1.innerText = "STANDBY";
+      pStepStatus2.innerText = "STANDBY";
+      pStepStatus3.innerText = "STANDBY";
+
+      // --- STEP 1: CLASSIFY ---
+      setTimeout(() => {
+        pStep1.classList.add('active');
+        pStepStatus1.innerText = "PROCESSING";
+        
+        let classificationLog = `[FASTAPI] /classify -> Input text language: ${inputLang.toUpperCase()}`;
+        if (inputLang !== 'en') {
+          classificationLog += ` | IndicTrans translation: "${englishTranslation}"`;
+        }
+        appendTerminalLog("info", classificationLog);
+        
+        // Predict disaster parameters
+        let disasterType = "Medical Emergency";
+        let severity = "URGENT";
+        if (englishTranslation.includes("water") || englishTranslation.includes("flood") || englishTranslation.includes("shelter")) {
+          disasterType = "Flood Evacuation";
+          severity = "HIGH";
+        }
+        
+        setTimeout(() => {
+          pStepStatus1.innerText = "COMPLETE";
+          appendTerminalLog("success", `[CLASSIFICATION] Result -> Disaster: ${disasterType.toUpperCase()} | Severity: ${severity} | Language: ${inputLang.toUpperCase()}`);
+          
+          // --- STEP 2: RETRIEVE ---
+          setTimeout(() => {
+            pStep1.classList.remove('active');
+            pStep2.classList.add('active');
+            pStepStatus2.innerText = "RETRIEVING";
+            
+            appendTerminalLog("warning", `[ChromaDB] Executing local semantic query for embedding fragments matching "${englishTranslation.substring(0, 30)}..."`);
+            
+            setTimeout(() => {
+              pStepStatus2.innerText = "COMPLETE";
+              appendTerminalLog("success", `[ChromaDB] Retrieved top-3 NDMA/First Aid manual chunks. Cosine distance ranges: [0.18, 0.24, 0.28]`);
+              
+              // --- STEP 3: GENERATE ---
+              setTimeout(() => {
+                pStep2.classList.remove('active');
+                pStep3.classList.add('active');
+                pStepStatus3.innerText = "INFERENCE";
+                
+                appendTerminalLog("gemma", `[Gemma 4] Processing localized prompt context. Input prompt tokens: ~1,420`);
+                
+                setTimeout(() => {
+                  pStepStatus3.innerText = "COMPLETE";
+                  pStep3.classList.remove('active');
+                  
+                  // Construct Gemma response based on the query
+                  let aiResponseText = "";
+                  let speechText = "";
+                  
+                  if (englishTranslation.includes("water") || englishTranslation.includes("shelter")) {
+                    aiResponseText = `<b>Sahayak AI (Flood Support):</b> Evacuation Shelter #1 is active at High Ground School, located 2.3km North. Dry food rations are available. Move immediately using the elevated bypass roads.`;
+                    speechText = "Evacuation Shelter Number One is active at High Ground School, located two point three kilometers North. Move immediately using the elevated bypass roads.";
+                  } else if (englishTranslation.includes("bone") || englishTranslation.includes("bleeding")) {
+                    aiResponseText = `<b>Sahayak AI (First Aid):</b> 1. Stop bleeding first: Apply constant pressure using a clean cloth. 2. Immobilize the limb: Do not attempt to re-align the broken bone. Wrap a board or rolled newspaper alongside the joint.`;
+                    speechText = "First, stop bleeding. Apply constant pressure using a clean cloth. Next, immobilize the limb. Do not attempt to re-align the broken bone.";
+                  } else {
+                    aiResponseText = `<b>Sahayak AI (Emergency support):</b> We have logged your request. The nearest medical camp is located at Patna Civic Center. Seek shelter immediately.`;
+                    speechText = "We have logged your request. The nearest medical camp is located at Patna Civic Center. Seek shelter immediately.";
+                  }
+                  
+                  // Translate to input language for display if needed
+                  if (inputLang === 'hi') {
+                    aiResponseText = `<b>सहायक एआई (बाढ़/चिकित्सा निर्देश):</b> घबराएं नहीं। 1. बहते खून को साफ कपड़े से दबाकर रोकें। 2. टूटी हुई हड्डी को सीधा करने की कोशिश न करें, उसे सहारा दें। 3. नजदीकी राहत शिविर २४ घंटे खुला है।`;
+                    speechText = "घबराएं नहीं। बहते खून को साफ कपड़े से दबाकर रोकें। टूटी हुई हड्डी को सीधा करने की कोशिश न करें।";
+                  }
+                  
+                  const transcript = document.getElementById('voiceTranscript');
+                  transcript.innerHTML += `<div class="transcript-bubble ai">${aiResponseText}</div>`;
+                  transcript.scrollTop = transcript.scrollHeight;
+                  
+                  appendTerminalLog("success", `[OLLAMA] Gemma 4 complete. 248 tokens generated. Speed: 48 tokens/sec.`);
+                  
+                  // Voice aloud AI response
+                  triggerVoiceSynthesisAloud(speechText, inputLang);
+                  
+                }, 2000);
+              }, 1200);
+            }, 1500);
+          }, 1200);
+        }, 1200);
+      }, 200);
+    }pt.innerHTML += `<div class="transcript-bubble ai">${aiResponseText}</div>`;
+                  transcript.scrollTop = transcript.scrollHeight;
+                  
+                  appendTerminalLog("success", `[OLLAMA] Gemma 4 complete. 248 tokens generated. Speed: 48 tokens/sec.`);
+                  
+                  // Voice aloud AI response
+                  triggerVoiceSynthesisAloud(speechText, inputLang);
+                  
+                }, 2000);
+              }, 1200);
+            }, 1500);
+          }, 1200);
+        }, 1200);
+      }, 200);
+    }
+
+    function triggerVoiceSynthesisAloud(text, lang) {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 0.95;
+      
+      if (lang === 'hi') {
+        utterance.lang = 'hi-IN';
+      } else {
+        utterance.lang = 'en-US';
+      }
+      
+      const voices = window.speechSynthesis.getVoices();
+      const voice = voices.find(v => v.lang.startsWith(lang));
+      if (voice) utterance.voice = voice;
+      
+      window.speechSynthesis.speak(utterance);
+      appendTerminalLog("gemma", `[TTS Voiceout] Generating offline response audio voice in: ${lang.toUpperCase()}`);
+    }
+
+    // EYES FREE MODE
+    function toggleEyesFree() {
+      const overlay = document.getElementById('eyesFreeOverlay');
+      const toggleBtn = document.getElementById('eyesFreeToggle');
+      
+      isEyesFreeMode = !isEyesFreeMode;
+      if (isEyesFreeMode) {
+        overlay.classList.add('active');
+        toggleBtn.classList.add('active');
+        appendTerminalLog("warning", "[SYSTEM] Eyes-free gesture mode active. Large screen tap capture enabled.");
+        
+        // Speech intro
+        triggerEmergVoiceSynthesis("Eyes free mode active. Tap anywhere on the phone screen to voice record your emergency.");
+      } else {
+        overlay.classList.remove('active');
+        toggleBtn.classList.remove('active');
+        appendTerminalLog("info", "[SYSTEM] De-activating eyes-free gesture mode.");
+      }
+    }
+
+    function handleEyesFreeTap() {
+      const display = document.getElementById('eyesFreeTextDisplay');
+      
+      if (!isRecordingVoice) {
+        isRecordingVoice = true;
+        display.innerText = "LISTENING... (TAP TO STOP)";
+        display.style.color = "var(--primary-red)";
+        appendTerminalLog("info", "[WHISPER] Eyes-free audio capture started.");
+        
+        simulateSpeechRecognitionInput();
+      } else {
+        isRecordingVoice = false;
+        display.innerText = "EYES-FREE READY (TAP TO TALK)";
+        display.style.color = "#ffffff";
+        stopVoiceCapture();
+      }
+    }
+
+    // 3. GOVERNMENT SCHEME NAVIGATOR
+    function populateSchemesView() {
+      const regionText = document.getElementById('schemesSubRegion');
+      const cardGrid = document.getElementById('schemesCardGrid');
+      
+      const stateName = selectedState ? selectedState.toUpperCase() : "BIHAR";
+      const districtName = selectedDistrict ? selectedDistrict.toUpperCase() : "PATNA";
+      
+      regionText.innerText = `Localized context: ${stateName} (${districtName} District)`;
+      cardGrid.innerHTML = '';
+      
+      const schemesList = schemeData[selectedState] || schemeData['bihar'];
+      
+      schemesList.forEach((s, idx) => {
+        cardGrid.innerHTML += `
+          <div class="scheme-details-card" onclick="toggleSchemeExpand(${idx})">
+            <div class="scheme-name-tag">
+              ${s.name}
+              <span class="scheme-badge">${s.badge}</span>
+            </div>
+            <div class="scheme-desc-text">${s.desc}</div>
+            <div class="scheme-expanded-info" id="scheme-info-${idx}">
+              <b>Eligibility Criteria:</b><br>
+              ${s.eligibility}
+              <br><br>
+              <span style="color:var(--success-green); font-weight:bold;">✓ SQLite Cached (Ready Offline)</span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function toggleSchemeExpand(idx) {
+      const element = document.getElementById(`scheme-info-${idx}`);
+      element.classList.toggle('active');
+    }
+
+    function triggerFirstAidSchemeQuick() {
+      goToPhoneView('view-emergency');
+    }
+
+    function checkSchemeEligibility() {
+      const inputVal = document.getElementById('eligibilityInput').value.trim();
+      if (!inputVal) {
+        alert("Please describe your situation to let Gemma 4 evaluate eligibility.");
+        return;
+      }
+      
+      const output = document.getElementById('eligibilityOutput');
+      output.classList.add('active');
+      output.innerHTML = `<i>Analyzing with local Gemma 4 model... Please wait.</i>`;
+      
+      appendTerminalLog("info", `[FASTAPI] POST /chat -> "Verify eligibility profile: ${inputVal}"`);
+      
+      const pStep1 = document.getElementById('pStep1');
+      const pStep2 = document.getElementById('pStep2');
+      const pStep3 = document.getElementById('pStep3');
+      
+      pStep1.classList.add('active');
+      
+      if (localServerActive) {
+        fetch('http://localhost:8000/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: "Scheme Eligibility Check: " + inputVal })
+        })
+        .then(res => res.json())
+        .then(data => {
+          pStep1.classList.remove('active');
+          pStep2.classList.add('active');
+          appendTerminalLog("info", `[ChromaDB] RAG matching for local schema terms: NDRF, crop damage, grant limits`);
+          
+          setTimeout(() => {
+            pStep2.classList.remove('active');
+            pStep3.classList.add('active');
+            appendTerminalLog("gemma", `[Gemma 4] Processing structured eligibility synthesis. Engine: ${data.engine}`);
+            
+            setTimeout(() => {
+              pStep3.classList.remove('active');
+              
+              output.innerHTML = `
+                <div style="font-weight:bold; color:var(--success-green); margin-bottom:0.25rem;">✓ AI Assessment Output (${data.classification.disaster_type})</div>
+                • <b>Severity:</b> ${data.classification.severity}<br>
+                • <b>Local Region:</b> ${selectedDistrict.toUpperCase()} (${selectedState.toUpperCase()})<br>
+                • <b>Gemma RAG Assessment:</b><br>${data.response}
+              `;
+              appendTerminalLog("success", "[OLLAMA] Live scheme eligibility assessment complete!");
+            }, 800);
+          }, 800);
+        })
+        .catch(err => {
+          pStep1.classList.remove('active');
+          appendTerminalLog("error", "[FASTAPI] Server eligibility scan failed: " + err.message + ". Running simulated check.");
+          checkSchemeEligibilityFallback(inputVal);
+        });
+        
+        return;
+      }
+      
+      checkSchemeEligibilityFallback(inputVal);
+    }
+
+    function checkSchemeEligibilityFallback(inputVal) {
+      const output = document.getElementById('eligibilityOutput');
+      const pStep1 = document.getElementById('pStep1');
+      const pStep2 = document.getElementById('pStep2');
+      const pStep3 = document.getElementById('pStep3');
+      
+      pStep1.classList.add('active');
+      
+      setTimeout(() => {
+        pStep1.classList.remove('active');
+        pStep2.classList.add('active');
+        appendTerminalLog("info", `[ChromaDB] RAG match for local schema terms: NDRF, crop damage, grant limits`);
+        
+        setTimeout(() => {
+          pStep2.classList.remove('active');
+          pStep3.classList.add('active');
+          appendTerminalLog("gemma", `[Gemma 4] Classifying eligibility factors. Parameters: Location=${selectedDistrict}, LossType=Crop/Shelter`);
+          
+          setTimeout(() => {
+            pStep3.classList.remove('active');
+            
+            // Build mock evaluation outcome
+            let analysisReport = "";
+            if (inputVal.toLowerCase().includes("crop") || inputVal.toLowerCase().includes("farm")) {
+              analysisReport = `
+                <div style="font-weight:bold; color:var(--success-green); margin-bottom:0.25rem;">✓ Potential Match: NDRF Crop Input Subsidy</div>
+                • <b>Status:</b> Highly Eligible (Local region: ${selectedState.toUpperCase()})<br>
+                • <b>Comp limit:</b> ₹6,800 to ₹18,000 per Hectare.<br>
+                • <b>RAG Instruction:</b> File Form 4-B with local Revenue Inspector in ${selectedDistrict.toUpperCase()} within 15 days. Offline copy cached.
+              `;
+            } else if (inputVal.toLowerCase().includes("home") || inputVal.toLowerCase().includes("house") || inputVal.toLowerCase().includes("ghar")) {
+              analysisReport = `
+                <div style="font-weight:bold; color:var(--success-green); margin-bottom:0.25rem;">✓ Potential Match: PM Aawas Yojana Relief Clause</div>
+                • <b>Status:</b> High Eligibility (Structural damage score high)<br>
+                • <b>Compensation:</b> Up to ₹1,20,000 Reconstruction Grant.<br>
+                • <b>Next steps:</b> Village Panchayat verification list scheduled in ${selectedDistrict.toUpperCase()} once floods recede.
+              `;
+            } else {
+              analysisReport = `
+                <div style="font-weight:bold; color:var(--warning-amber); margin-bottom:0.25rem;">✓ Match: NDRF Immediate Utility Fund</div>
+                • <b>Status:</b> Eligible<br>
+                • <b>Provision:</b> ₹4,000 immediate dry food & clothing support.<br>
+                • <b>Local center:</b> evacuation camps active in district. Present Aadhaar card.
+              `;
+            }
+            
+            output.innerHTML = analysisReport;
+            appendTerminalLog("success", "[OLLAMA] Eligibility synthesis report finalized.");
+          }, 1500);
+        }, 1200);
+      }, 1000);
+    }
+
+    // 4. DUAL ENGINE MAP engine
+    function initializeMapEngine() {
+      const onlineMapEl = document.getElementById('onlineMapObj');
+      const offlineCanvasEl = document.getElementById('offlineMapCanvas');
+      
+      const targetRegion = selectedDistrict ? selectedDistrict : 'patna';
+      let coords = [25.6026, 85.1199]; // Patna Default
+      
+      if (targetRegion === 'dibrugarh') {
+        coords = [27.4728, 94.9120];
+      } else if (targetRegion === 'cuttack') {
+        coords = [20.4625, 85.8830];
+      }
+      
+      // Update Title
+      document.getElementById('mapTitleText').innerText = `Emergency Grid: ${targetRegion.toUpperCase()}`;
+
+      // Load Pins from local server if active, or fall back immediately to mock database
+      if (localServerActive) {
+        appendTerminalLog("info", `[FASTAPI] GET /poipins?district=${targetRegion} -> Fetching live GIS coords...`);
+        fetch(`http://localhost:8000/poipins?district=${targetRegion}`)
+          .then(res => res.json())
+          .then(data => {
+            // Update live cache
+            mapPins[targetRegion] = data.pins;
+            appendTerminalLog("success", `[SQLITE] Loaded ${data.pins.length} active GIS coordinates from FastAPI sqlite tables.`);
+            drawMapInterface(coords, targetRegion, onlineMapEl, offlineCanvasEl);
+          })
+          .catch(err => {
+            appendTerminalLog("error", `[FASTAPI] Live POIPins request failed: ${err.message}. Running client cached data.`);
+            drawMapInterface(coords, targetRegion, onlineMapEl, offlineCanvasEl);
+          });
+      } else {
+        drawMapInterface(coords, targetRegion, onlineMapEl, offlineCanvasEl);
+      }
+    }
+
+    function drawMapInterface(coords, targetRegion, onlineMapEl, offlineCanvasEl) {
+      if (isOnlineMode) {
+        // ONLINE LAYER: Show Leaflet Map
+        onlineMapEl.style.display = 'block';
+        offlineCanvasEl.style.display = 'none';
+        
+        appendTerminalLog("info", `[OSM] Requesting map tiles online server for: Lat ${coords[0]}, Lng ${coords[1]}`);
+        
+        if (!leafletMap) {
+          leafletMap = L.map('onlineMapObj', { zoomControl: false }).setView(coords, 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+          }).addTo(leafletMap);
+          mapInitialized = true;
+        } else {
+          leafletMap.setView(coords, 13);
+        }
+        
+        // Remove old markers if any
+        leafletMap.eachLayer((layer) => {
+          if (layer instanceof L.Marker) {
+            leafletMap.removeLayer(layer);
+          }
+        });
+        
+        // Add dynamic pins
+        const pinsList = mapPins[targetRegion] || mapPins['patna'];
+        pinsList.forEach(pin => {
+          const marker = L.marker([pin.lat, pin.lng]).addTo(leafletMap);
+          marker.bindTooltip(pin.name, { permanent: false, direction: "top" });
+          
+          marker.on('click', () => {
+            showMapPinDetails(pin.name, pin.desc);
+          });
+        });
+        
+      } else {
+        // OFFLINE LAYER: Show Custom High Contrast Canvas Vector Map
+        onlineMapEl.style.display = 'none';
+        offlineCanvasEl.style.display = 'block';
+        
+        appendTerminalLog("warning", "[SQLITE] Disabling GPS online feeds. Launching pre-compiled Vector coordinate Canvas map.");
+        
+        renderOfflineCanvasMap(targetRegion);
+      }
+    }
+
+    function renderOfflineCanvasMap(region = 'patna') {
+      const canvas = document.getElementById('offlineMapCanvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set display scale
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight || 400;
+      
+      // Fill canvas background
+      ctx.fillStyle = "#0c121e";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw simulated spatial gridlines (Offline tech matrix)
+      ctx.strokeStyle = "rgba(6, 182, 212, 0.08)";
+      ctx.lineWidth = 1.5;
+      const step = 25;
+      for (let x = 0; x < canvas.width; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+      
+      // Draw offline boundary road paths
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(30, 80);
+      ctx.lineTo(canvas.width - 30, 120);
+      ctx.lineTo(canvas.width - 100, canvas.height - 40);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+      
+      // Fetch regional pins list
+      const pinsList = mapPins[region] || mapPins['patna'];
+      
+      // Plot interactive pins
+      pinsList.forEach((pin, index) => {
+        // Distribute coordinates visually on canvas space
+        const xOffset = 50 + (index * 80) % (canvas.width - 100);
+        const yOffset = 80 + (index * 110) % (canvas.height - 140);
+        
+        // Save computed canvas positions in object to enable click listeners
+        pin.canvasX = xOffset;
+        pin.canvasY = yOffset;
+        
+        // Draw Pin Node Circle
+        ctx.beginPath();
+        let glowColor = "rgba(6, 182, 212, 0.4)";
+        if (pin.type === 'hospital') {
+          ctx.fillStyle = varColor('primary-red');
+          glowColor = "rgba(244, 63, 94, 0.4)";
+        } else if (pin.type === 'water') {
+          ctx.fillStyle = "#f59e0b";
+          glowColor = "rgba(245, 158, 11, 0.4)";
+        } else {
+          ctx.fillStyle = varColor('success-green');
+          glowColor = "rgba(16, 185, 129, 0.4)";
+        }
+        
+        ctx.arc(xOffset, yOffset, 8, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // outer ring pulse
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(xOffset, yOffset, 14, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        // Text labels inside map
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "bold 9px sans-serif";
+        ctx.fillText(pin.name.split(" ")[0] + " " + (pin.name.split(" ")[2] || ""), xOffset - 25, yOffset - 18);
+      });
+      
+      // Draw User marker (You)
+      ctx.beginPath();
+      ctx.fillStyle = "#ffffff";
+      ctx.arc(canvas.width / 2, canvas.height - 80, 6, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.strokeStyle = varColor('primary-red');
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(canvas.width / 2, canvas.height - 80, 11, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 8px monospace";
+      ctx.fillText("YOU (Offline)", canvas.width / 2 - 25, canvas.height - 95);
+      
+      // Add canvas click event handler once
+      if (!canvas.onclick) {
+        canvas.onclick = (event) => {
+          const rect = canvas.getBoundingClientRect();
+          const clickX = event.clientX - rect.left;
+          const clickY = event.clientY - rect.top;
+          
+          // Match click with pin coordinates
+          const clickedPin = pinsList.find(pin => {
+            const dist = Math.sqrt(Math.pow(clickX - pin.canvasX, 2) + Math.pow(clickY - pin.canvasY, 2));
+            return dist <= 20; // 20px hit range
+          });
+          
+          if (clickedPin) {
+            showMapPinDetailOffline(clickedPin);
+          }
+        };
+      }
+    }
+
+    function varColor(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
+    }
+
+    function showMapPinDetails(name, stats) {
+      const bar = document.getElementById('mapPinDetailBar');
+      document.getElementById('pinDetailName').innerText = name;
+      document.getElementById('pinDetailStats').innerText = stats;
+      bar.classList.add('active');
+    }
+
+    function showMapPinDetailOffline(pin) {
+      showMapPinDetails("📍 " + pin.name, pin.desc + " [SQLITE Cached]");
+      appendTerminalLog("success", `[SQLITE] Loading point-of-interest coordinates from local GIS tables: "${pin.name}"`);
+    }
+  </script>
+</body>
+</html>

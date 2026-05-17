@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # Python FastAPI Backend RAG service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sahayak_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - CHROMA_DB_DIR=/app/chroma_db
+    volumes:
+      - ./backend:/app
+      - chroma_data:/app/chroma_db
+    depends_on:
+      - ollama
+    networks:
+      - sahayak_network
+
+  # Ollama On-Device Local LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sahayak_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - sahayak_network
+
+volumes:
+  chroma_data:
+  ollama_data:
+
+networks:
+  sahayak_network:
+    driver: bridge
