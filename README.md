@@ -47,9 +47,8 @@ The project includes a full cinematic storyboard presentation matching the 3-min
 *   **Technical Showcase**: The app initializes, instantly detecting "Offline Grid" state. The victim uses Hindi voice input: *"मेरे घर में पानी घुस गया है, क्या करूँ?"*
 *   **Live RAG Loop**: Whisper translates, ChromaDB retrieves official flood guidelines, and Gemma edge synthesizes instant instructions: *"High Ground shelter is 2.3km North. Elevated bypass is dry."*
 *   **Closing**: The victim clicks SOS. High-contrast canvas map and LoRa mesh transmit telemetry. Relief arrives.
-
-> [!NOTE]
-> Review the cinematic storyboard reference details inside [docs/demo_script.md](file:///c:/Users/HP/MUZAN/docs/demo_script.md) and view the dynamic storyboard slides presentation in [sahayak_presentation.html](file:///c:/Users/HP/MUZAN/sahayak_presentation.html).
+  ![img alt](https://github.com/shivamshukla02/sahayak-ai/blob/d4bdba37483923f391c2d98081dea1c17bdc0930/ChatGPT%20Image%20May%2017%2C%202026%2C%2004_36_44%20PM.png)
+[!NOTE]> Review the cinematic storyboard reference details inside [docs/demo_script.md](file:///c:/Users/HP/MUZAN/docs/demo_script.md) and view the dynamic storyboard slides presentation in [sahayak_presentation.html](file:///c:/Users/HP/MUZAN/sahayak_presentation.html).
 
 ---
 
